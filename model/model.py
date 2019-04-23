@@ -10,14 +10,15 @@ from .modules.crnn import CRNN
 import pretrainedmodels as pm
 import torch.optim as optim
 import numpy as np
+import utils.common_str as common_str
 
 
 class FOTSModel:
 
-    def __init__(self, config, keys='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-.'):
+    def __init__(self, config, keys=common_str.custom_1):
         self.mode = config['model']['mode']
 
-        bbNet =  pm.__dict__['resnet50'](pretrained='imagenet') # resnet50 in paper
+        bbNet = pm.__dict__['resnet50'](pretrained='imagenet')  # resnet50 in paper
         self.sharedConv = shared_conv.SharedConv(bbNet, config)
 
         nclass = len(keys) + 1
@@ -36,7 +37,7 @@ class FOTSModel:
         self.sharedConv = torch.nn.DataParallel(self.sharedConv)
         self.recognizer = torch.nn.DataParallel(self.recognizer)
         self.detector = torch.nn.DataParallel(self.detector)
-        #self.roirotate = torch.nn.DataParallel(self.roirotate)
+        # self.roirotate = torch.nn.DataParallel(self.roirotate)
 
     def to(self, device):
         self.sharedConv = self.sharedConv.to(device)
@@ -87,18 +88,16 @@ class FOTSModel:
         return self.sharedConv.training and self.detector.training and self.recognizer.training
 
     def parameters(self):
-        for m_module in [self.sharedConv,self.recognizer,self.detector]:
+        for m_module in [self.sharedConv, self.recognizer, self.detector]:
             for m_para in m_module.parameters():
                 yield m_para
 
-    def forward(self, *input):
-        '''
-
-        :param input:
-        :return:
-        '''
-        image, boxes, mapping = input
-
+    def forward(self, image, boxes=None, mapping=None):
+        """
+        :param image:   图像
+        :param boxes:   训练的时候gt的boxes
+        :param mapping: 训练的时候boxes与图像的映射
+        """
         if image.is_cuda:
             device = image.get_device()
         else:
@@ -142,7 +141,7 @@ class FOTSModel:
 
         lengths = torch.tensor(lengths).to(device)
         preds = self.recognizer(rois, lengths)
-        preds = preds.permute(1, 0, 2) # B, T, C -> T, B, C
+        preds = preds.permute(1, 0, 2)  # B, T, C -> T, B, C
 
         return score_map, geo_map, (preds, lengths), pred_boxes, pred_mapping, indices
 
@@ -161,9 +160,9 @@ class Detector(BaseModel):
 
     def __init__(self, config):
         super().__init__(config)
-        self.scoreMap = nn.Conv2d(32, 1, kernel_size = 1)
-        self.geoMap = nn.Conv2d(32, 4, kernel_size = 1)
-        self.angleMap = nn.Conv2d(32, 1, kernel_size = 1)
+        self.scoreMap = nn.Conv2d(32, 1, kernel_size=1)
+        self.geoMap = nn.Conv2d(32, 4, kernel_size=1)
+        self.angleMap = nn.Conv2d(32, 1, kernel_size=1)
 
     def forward(self, feature_map):
         final = feature_map
