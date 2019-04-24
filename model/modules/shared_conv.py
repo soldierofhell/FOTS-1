@@ -119,7 +119,7 @@ class SharedConv(BaseModel):
         _, _, H, W = input.shape
         return F.interpolate(input, mode='bilinear', scale_factor=2, align_corners=True)
 
-    def __mean_image_subtraction(self, images, means=[123.68, 116.78, 103.94]):
+    def __mean_image_subtraction(self, images, means=(123.68, 116.78, 103.94)):
         '''
         image normalization
         :param images: bs * w * h * channel
