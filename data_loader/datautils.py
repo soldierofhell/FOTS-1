@@ -8,7 +8,7 @@ import pathlib
 from shapely.geometry import Polygon
 
 
-def get_images(root,limit=None):
+def get_images(root, limit=None):
     '''
     get images's path and name
     '''
@@ -46,7 +46,7 @@ def load_annoataion(p):
                 text_tags.append(True)
             else:
                 text_tags.append(False)
-        return np.array(text_polys, dtype=np.float32), np.array(text_tags, dtype=np.bool), texts
+        return np.array(text_polys, dtype=np.float32), texts, np.array(text_tags, dtype=np.bool)
 
 
 def polygon_area(poly):
@@ -124,7 +124,7 @@ def crop_area(im, polys, tags, crop_background=False, max_tries=50):
     h_axis = np.where(h_array == 0)[0]
     w_axis = np.where(w_array == 0)[0]
     if len(h_axis) == 0 or len(w_axis) == 0:
-        return im, polys, tags
+        return im, polys, tags, np.array(len(polys))
     for i in range(max_tries):
         xx = np.random.choice(w_axis, size=2)
         xmin = np.min(xx) - pad_w
@@ -149,7 +149,7 @@ def crop_area(im, polys, tags, crop_background=False, max_tries=50):
         if len(selected_polys) == 0:
             # no text in this area
             if crop_background:
-                return im[ymin:ymax + 1, xmin:xmax + 1, :], polys[selected_polys], tags[selected_polys]
+                return im[ymin:ymax + 1, xmin:xmax + 1, :], polys[selected_polys], tags[selected_polys],[]
             else:
                 continue
         im = im[ymin:ymax + 1, xmin:xmax + 1, :]
@@ -157,9 +157,9 @@ def crop_area(im, polys, tags, crop_background=False, max_tries=50):
         tags = tags[selected_polys]
         polys[:, :, 0] -= xmin
         polys[:, :, 1] -= ymin
-        return im, polys, tags
+        return im, polys, tags, selected_polys
 
-    return im, polys, tags
+    return im, polys, tags, np.array(len(polys))
 
 
 def shrink_poly(poly, r):
@@ -454,6 +454,8 @@ def generate_rbox(im_size, polys, tags):
     geo_map = np.zeros((h, w, 5), dtype=np.float32)
     # mask used during traning, to ignore some hard areas
     training_mask = np.ones((h, w), dtype=np.uint8)
+    rectangles = []
+
     for poly_idx, poly_tag in enumerate(zip(polys, tags)):
         poly = poly_tag[0]
         tag = poly_tag[1]
@@ -476,8 +478,6 @@ def generate_rbox(im_size, polys, tags):
             cv2.fillPoly(training_mask, poly.astype(np.int32)[np.newaxis, :, :], 0)
 
         xy_in_poly = np.argwhere(poly_mask == (poly_idx + 1))
-        # if geometry == 'RBOX':
-        # 对任意两个顶点的组合生成一个平行四边形
         fitted_parallelograms = []
         for i in range(4):
             p0 = poly[i]
@@ -549,10 +549,11 @@ def generate_rbox(im_size, polys, tags):
         parallelogram = parallelogram[
             [min_coord_idx, (min_coord_idx + 1) % 4, (min_coord_idx + 2) % 4, (min_coord_idx + 3) % 4]]
 
-        rectange = rectangle_from_parallelogram(parallelogram)
-        rectange, rotate_angle = sort_rectangle(rectange)
+        rectangle = rectangle_from_parallelogram(parallelogram)
+        rectangle, rotate_angle = sort_rectangle(rectangle)
+        rectangles.append(rectangle.flatten())
 
-        p0_rect, p1_rect, p2_rect, p3_rect = rectange
+        p0_rect, p1_rect, p2_rect, p3_rect = rectangle
         for y, x in xy_in_poly:
             point = np.array([x, y], dtype=np.float32)
             # top
@@ -565,90 +566,83 @@ def generate_rbox(im_size, polys, tags):
             geo_map[y, x, 3] = point_dist_to_line(p3_rect, p0_rect, point)
             # angle
             geo_map[y, x, 4] = rotate_angle
-    return score_map, geo_map, training_mask
+    return score_map, geo_map, training_mask, rectangles
 
 
 def image_label(txt_root, image_list, img_name, index,
                 input_size=512, random_scale=np.array([0.5, 1, 2.0, 3.0]),
                 background_ratio=3. / 8):
-    '''
+    """
     get image's corresponding matrix and ground truth
-    '''
+    如果预测样张较小的话，input_size需要适当调小，且是128的整数倍数
+    """
 
     try:
-        im_fn = image_list[index]
-        im_name = img_name[index]
-        im = cv2.imread(im_fn)
-        # print im_fn
-        h, w, _ = im.shape
+        image_filename = image_list[index]
+        cur_img_name = img_name[index]
+        cur_img = cv2.imread(image_filename)
+        h, w, _ = cur_img.shape
 
-        txt_fn = 'gt_' + im_name.replace(im_name.split('.')[1], 'txt')
-        # txt_fn = im_name.replace(im_name.split('.')[1], 'txt')
-        txt_fn = os.path.join(txt_root, txt_fn)
-        # if not os.path.exists(txt_fn):
-        #     pass
-
-        text_polys, text_tags, texts = load_annoataion(txt_fn)  # text_polys: n * 4 * 2
+        gt_file_name = 'gt_' + cur_img_name.replace(cur_img_name.split('.')[1], 'txt')
+        gt_file_name = os.path.join(txt_root, gt_file_name)
+        # 加载并过滤掉不合适的多边形与文本
+        text_polys, texts, text_tags = load_annoataion(gt_file_name)  # text_polys: n * 4 * 2
         text_polys, texts, text_tags = check_and_validate_polys(text_polys, texts, text_tags, (h, w))
-        # if text_polys.shape[0] == 0:
-        #     continue
-        # random scale this image
+        # 选择随机的缩放比例
         rd_scale = np.random.choice(random_scale)
-        im = cv2.resize(im, dsize=None, fx=rd_scale, fy=rd_scale)
+        # 将当前图像缩放到随机的缩放比例
+        cur_img = cv2.resize(cur_img, dsize=None, fx=rd_scale, fy=rd_scale)
         text_polys *= rd_scale
-        # print rd_scale
-        # random crop a area from image
+        rectangles = []
+
+        # 一定概率概率随机裁剪背景还是有多边形的区域
         if np.random.rand() < background_ratio:
             # crop background
-            im, text_polys, text_tags = crop_area(im, text_polys, text_tags, crop_background=True)
-            # if text_polys.shape[0] > 0:
-            #     # cannot find background
-            #     pass
-            # pad and resize image
-            new_h, new_w, _ = im.shape
+            cur_img, text_polys, text_tags, _ = crop_area(cur_img, text_polys, text_tags, crop_background=True)
+            assert len(text_polys) == 0, 'Background crop error'
+            new_h, new_w, _ = cur_img.shape
             max_h_w_i = np.max([new_h, new_w, input_size])
             im_padded = np.zeros((max_h_w_i, max_h_w_i, 3), dtype=np.uint8)
-            im_padded[:new_h, :new_w, :] = im.copy()
-            im = cv2.resize(im_padded, dsize=(input_size, input_size))
+            im_padded[:new_h, :new_w, :] = cur_img.copy()
+            cur_img = cv2.resize(im_padded, dsize=(input_size, input_size))
             score_map = np.zeros((input_size, input_size), dtype=np.uint8)
             geo_map_channels = 5
-            #                     geo_map_channels = 5 if FLAGS.geometry == 'RBOX' else 8
             geo_map = np.zeros((input_size, input_size, geo_map_channels), dtype=np.float32)
             training_mask = np.ones((input_size, input_size), dtype=np.uint8)
         else:
-            im, text_polys, text_tags = crop_area(im, text_polys, text_tags, crop_background=False)
-            # if text_polys.shape[0] == 0:
-            #     pass
-            h, w, _ = im.shape
+            cur_img, text_polys, text_tags, _ = crop_area(cur_img, text_polys, text_tags, crop_background=False)
+            assert len(text_polys) > 0, 'Text area crop error'
+            h, w, _ = cur_img.shape
 
-            # pad the image to the training input size or the longer side of image
-            new_h, new_w, _ = im.shape
+            new_h, new_w, _ = cur_img.shape
+            # 图像左上角pad填充
             max_h_w_i = np.max([new_h, new_w, input_size])
             im_padded = np.zeros((max_h_w_i, max_h_w_i, 3), dtype=np.uint8)
-            im_padded[:new_h, :new_w, :] = im.copy()
-            im = im_padded
-            # resize the image to input size
-            new_h, new_w, _ = im.shape
+            im_padded[:new_h, :new_w, :] = cur_img.copy()
+            cur_img = im_padded
+            # 将填充后的图像resize到目标大小
+            new_h, new_w, _ = cur_img.shape
             resize_h = input_size
             resize_w = input_size
-            im = cv2.resize(im, dsize=(resize_w, resize_h))
+            cur_img = cv2.resize(cur_img, dsize=(resize_w, resize_h))
             resize_ratio_3_x = resize_w / float(new_w)
             resize_ratio_3_y = resize_h / float(new_h)
             text_polys[:, :, 0] *= resize_ratio_3_x
             text_polys[:, :, 1] *= resize_ratio_3_y
-            new_h, new_w, _ = im.shape
-            score_map, geo_map, training_mask = generate_rbox((new_h, new_w), text_polys, text_tags)
+            new_h, new_w, _ = cur_img.shape
+            score_map, geo_map, training_mask, rectangles = generate_rbox((new_h, new_w), text_polys, text_tags)
 
-        # predict 出来的feature map 是 128 * 128， 所以 gt 需要取 /4 步长
-        images = im[:, :, ::-1].astype(np.float32)
-        score_maps = score_map[::4, ::4, np.newaxis].astype(np.float32)
-        geo_maps = geo_map[::4, ::4, :].astype(np.float32)
-        training_masks = training_mask[::4, ::4, np.newaxis].astype(np.float32)
+        assert len(rectangles) == len(texts), "number of box and text don't match"
+        step_size = int(input_size // 128)
+        images = cur_img[:, :, ::-1].astype(np.float32)
+        score_maps = score_map[::step_size, ::step_size, np.newaxis].astype(np.float32)
+        geo_maps = geo_map[::step_size, ::step_size, :].astype(np.float32)
+        training_masks = training_mask[::step_size, ::step_size, np.newaxis].astype(np.float32)
 
     except Exception as e:
-        im_name, images, score_maps, geo_maps, training_masks, texts, text_polys = None, None, None, None, None, None, None
+        cur_img_name, images, score_maps, geo_maps, training_masks, texts, rectangles = None, None, None, None, None, None, None
 
-    return im_name, images, score_maps, geo_maps, training_masks, texts, text_polys
+    return cur_img_name, images, score_maps, geo_maps, training_masks, texts, rectangles
 
 
 # def collate_fn(batch):
@@ -681,7 +675,7 @@ def image_label(txt_root, image_list, img_name, index,
 
 
 def collate_fn(batch):
-    imagePaths, img, score_map, geo_map, training_mask, transcripts, boxes = zip(*batch)
+    image_paths, img, score_map, geo_map, training_mask, transcripts, boxes = zip(*batch)
     bs = len(score_map)
     images = []
     score_maps = []
@@ -721,9 +715,9 @@ def collate_fn(batch):
     texts = np.array(texts)
     bboxs = np.stack(bboxs, axis=0)
     bboxs = np.concatenate([bboxs, np.ones((len(bboxs), 1))], axis=1).astype(np.float32)
-    imagePaths = [p.name if isinstance(p, pathlib.Path) else str(p) for p in imagePaths]
+    image_paths = [p.name if isinstance(p, pathlib.Path) else str(p) for p in image_paths]
 
-    return imagePaths, images, score_maps, geo_maps, training_masks, texts, bboxs, mapping
+    return image_paths, images, score_maps, geo_maps, training_masks, texts, bboxs, mapping
 
 ## img = bs * 512 * 512 *3
 ## score_map = bs* 128 * 128 * 1
