@@ -2,6 +2,7 @@
     "name": "FOTS",
     "cuda": true,
     "gpus": [0],
+    "finetune": "",
     "data_loader": {
         "dataset":"icdar2015",
         "data_dir": "./datasets/ICDAR2015",
@@ -26,13 +27,13 @@
         "weight_decay": 1e-5
     },
     "loss": "FOTSLoss",
-    "metrics": ["my_metric", "my_metric2"],
+    "metrics": ["fots_metric"],
     "trainer": {
         "epochs": 100000,
         "save_dir": "saved/",
         "save_freq": 1,
         "verbosity": 2,
-        "monitor": "val_loss",
+        "monitor": "loss",
         "monitor_mode": "min"
     },
     "arch": "FOTSModel",
