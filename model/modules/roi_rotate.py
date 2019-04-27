@@ -9,33 +9,35 @@ from torch import nn
 class ROIRotate(nn.Module):
 
     def __init__(self, height=8):
-        '''
+        """
 
         :param height: heigth of feature map after affine transformation
-        '''
+        """
 
         super().__init__()
         self.height = height
 
-    def forward(self, feature_map, boxes, mapping):
-        '''
-
+    def forward(self, feature_map, boxes, mapping,scale=512):
+        """
         :param feature_map:  N * 32 * 128 * 128
         :param boxes: M * 8
         :param mapping: mapping for image
+        :param scale:
         :return: N *C * H * W
-        '''
+        """
 
         max_width = 0
         boxes_width = []
         matrixes = []
         images = []
 
+        scale_size = int(512 // 128)
+
         for img_index, box in zip(mapping, boxes):
             feature = feature_map[img_index]  # B * C * H * W
             images.append(feature)
 
-            x1, y1, x2, y2, x3, y3, x4, y4 = box / 4  # 512 -> 128
+            x1, y1, x2, y2, x3, y3, x4, y4 = box / scale_size  # 512 -> 128
 
             # show_box(feature, box / 4, 'ffffff', isFeaturemap=True)
 
@@ -84,7 +86,7 @@ class ROIRotate(nn.Module):
             # x = (x*255).astype(np.uint8)
             #
             # cv2.imshow('img', np.hstack([x[:,:,_] for _ in range(x.shape[2])]))
-            # cv2.waitKey()
+            # cv2.waitKey(0)
 
             matrixes.append(affine_matrix)
             boxes_width.append(width_box)
