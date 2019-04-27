@@ -1,18 +1,16 @@
 #!/usr/local/bin/python
 # -*-coding=utf-8 -*-
 import argparse
-import torch
-import sys
-import os
 import logging
+import os
 import pathlib
-import traceback
 
+import torch
 from tqdm import tqdm
 
 from model.model import FOTSModel
+from utils import common_str
 from utils.bbox import Toolbox
-from utils.common_str import custom_1
 from utils.util import strLabelConverter
 
 logging.basicConfig(level=logging.DEBUG, format='')
@@ -28,10 +26,11 @@ def load_model(model_path, with_gpu):
 
     model = FOTSModel(config)
     model.load_state_dict(state_dict)
-    model.parallelize()
 
     if with_gpu:
         model.to(torch.device("cuda:0"))
+        model.parallelize()
+
     model.eval()
     return model
 
@@ -66,7 +65,7 @@ def main(args: argparse.Namespace):
 
     annotation_dir = args.annotation_dir
     with_image = True if output_img_dir else False
-    with_gpu = True if torch.cuda.is_available() else False
+    with_gpu = True if torch.cuda.is_available() and not args.no_gpu else False
 
     model = load_model(model_path, with_gpu)
     if annotation_dir is not None:
@@ -78,7 +77,7 @@ def main(args: argparse.Namespace):
             # try:
             with torch.no_grad():
                 polys, im, res = Toolbox.predict(image_fn, model, with_image, output_img_dir, with_gpu, labels,
-                                                 output_txt_dir)
+                                                 output_txt_dir,strLabelConverter(getattr(common_str,args.keys)))
             true_pos += res[0]
             false_pos += res[1]
             false_neg += res[2]
@@ -95,7 +94,7 @@ def main(args: argparse.Namespace):
         with torch.no_grad():
             for image_fn in tqdm(image_dir.glob('*.jpg')):
                 Toolbox.predict(image_fn, model, with_image, output_img_dir, with_gpu, None, None,
-                                strLabelConverter(custom_1))
+                                strLabelConverter(getattr(common_str,args.keys)))
 
 
 if __name__ == '__main__':
@@ -116,6 +115,12 @@ if __name__ == '__main__':
     parser.add_argument('-a', '--annotation_dir',
                         type=pathlib.Path,
                         help='dir for input images')
+    parser.add_argument('-k', '--keys',
+                        type=str,
+                        help='keys in common_str')
+    parser.add_argument('--no_gpu',
+                        action='store_true',
+                        help='keys in common_str')
 
     args = parser.parse_args()
     main(args)
