@@ -15,16 +15,16 @@ import utils.common_str as common_str
 
 class FOTSModel:
 
-    def __init__(self, config, keys=common_str.custom_1):
+    def __init__(self, config):
         self.mode = config['model']['mode']
-
+        keys = getattr(common_str,config['model']['keys'])
         bbNet = pm.__dict__['resnet50'](pretrained='imagenet')  # resnet50 in paper
         self.sharedConv = shared_conv.SharedConv(bbNet, config)
 
         nclass = len(keys) + 1
         self.recognizer = Recognizer(nclass, config)
         self.detector = Detector(config)
-        self.roirotate = ROIRotate()
+        self.roirotate = ROIRotate(config['model']['crnn']['img_h'])
 
         def backward_hook(self, grad_input, grad_output):
             for g in grad_input:
@@ -150,7 +150,8 @@ class Recognizer(BaseModel):
 
     def __init__(self, nclass, config):
         super().__init__(config)
-        self.crnn = CRNN(8, 32, nclass, 256)
+        crnn_config = config['model']['crnn']
+        self.crnn = CRNN(crnn_config['img_h'], 32, nclass, crnn_config['hidden'])
 
     def forward(self, rois, lengths):
         return self.crnn(rois, lengths)
