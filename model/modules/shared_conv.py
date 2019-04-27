@@ -17,13 +17,6 @@ class SharedConv(BaseModel):
     def __init__(self, bbNet: nn.Module, config):
         super(SharedConv, self).__init__(config)
         self.backbone = bbNet
-        #        self.backbone.eval()
-        #        # backbone as feature extractor
-        #        for param in self.backbone.parameters():
-        #            param.requires_grad = False
-
-        # Feature-merging branch
-        # self.toplayer = nn.Conv2d(2048, 256, kernel_size = 1, stride = 1, padding = 0)  # Reduce channels
 
         self.mergeLayers0 = DummyLayer()
 
@@ -33,13 +26,6 @@ class SharedConv(BaseModel):
 
         self.mergeLayers4 = nn.Conv2d(32, 32, kernel_size=3, padding=1)
         self.bn5 = nn.BatchNorm2d(32, momentum=0.003)
-
-        # Output Layer
-        self.textScale = 512
-        # self.scoreMap = nn.Conv2d(32, 1, kernel_size = 1)
-        # self.geoMap = nn.Conv2d(32, 4, kernel_size = 1)
-        # self.angleMap = nn.Conv2d(32, 1, kernel_size = 1)
-        #
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 m.weight.data.normal_().fmod_(2).mul_(0.01).add_(0)
@@ -82,17 +68,6 @@ class SharedConv(BaseModel):
         final = self.mergeLayers4(h[3])
         final = self.bn5(final)
         final = F.relu(final)
-        #
-        # score = self.scoreMap(final)
-        # score = torch.sigmoid(score)
-        #
-        # geoMap = self.geoMap(final)
-        # geoMap = torch.sigmoid(geoMap) * 512
-        # angleMap = self.angleMap(final)
-        # angleMap = (torch.sigmoid(angleMap) - 0.5) * math.pi / 2
-        # geometry = torch.cat([geoMap, angleMap], dim = 1)
-        #
-        # return score, geometry
         return final
 
     def __foward_backbone(self, input):
