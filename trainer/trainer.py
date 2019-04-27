@@ -84,7 +84,9 @@ class Trainer(BaseTrainer):
                 det_loss, reg_loss = self.loss(score_map, pred_score_map, geo_map, pred_geo_map, recog, pred_recog,
                                                training_mask)
                 loss = det_loss + reg_loss
-                loss.backward()
+                # loss.backward()
+                det_loss.backward()
+                reg_loss.backward()
                 self.optimizer.step()
 
                 total_loss += loss.item()
@@ -142,6 +144,8 @@ class Trainer(BaseTrainer):
         self.model.eval()
         total_val_metrics = np.zeros(3)
         with torch.no_grad():
+            total_loss = 0
+            print('Start validate')
             for batch_idx, gt in enumerate(self.valid_data_loader):
                 try:
                     imagePaths, img, score_map, geo_map, training_mask, transcripts, boxes, mapping = gt
@@ -149,6 +153,14 @@ class Trainer(BaseTrainer):
 
                     pred_score_map, pred_geo_map, pred_recog, pred_boxes, pred_mapping, indices = self.model.forward(
                         img, boxes, mapping)
+
+                    # indice_transcripts = transcripts[indices]
+                    # labels, label_lengths = self.labelConverter.encode(indice_transcripts.flatten().tolist())
+                    # recog = (labels, label_lengths)
+                    #
+                    # det_loss, reg_loss = self.loss(score_map, pred_score_map, geo_map, pred_geo_map, recog, pred_recog,
+                    #                                training_mask)
+                    # total_loss += det_loss+reg_loss
                     pred_transcripts = []
                     pred_fns = []
                     if len(pred_mapping) > 0:
@@ -173,6 +185,7 @@ class Trainer(BaseTrainer):
                     raise
 
         return {
+            # 'val_loss': total_loss / len(self.valid_data_loader),
             'val_precious': total_val_metrics[0] / len(self.valid_data_loader),
             'val_recall': total_val_metrics[1] / len(self.valid_data_loader),
             'val_hmean': total_val_metrics[2] / len(self.valid_data_loader)
