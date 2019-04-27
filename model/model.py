@@ -18,8 +18,13 @@ class FOTSModel:
     def __init__(self, config):
         self.mode = config['model']['mode']
         keys = getattr(common_str,config['model']['keys'])
-        bbNet = pm.__dict__['resnet50'](pretrained='imagenet')  # resnet50 in paper
-        self.sharedConv = shared_conv.SharedConv(bbNet, config)
+        backbone_network = pm.__dict__['resnet50'](pretrained='imagenet')  # resnet50 in paper
+        backbone_network.eval()
+        # backbone as feature extractor
+        for param in backbone_network.parameters():
+            param.requires_grad = False
+        self.conv_det = shared_conv.SharedConv(backbone_network, config)
+        self.conv_rec = shared_conv.SharedConv(backbone_network, config)
 
         nclass = len(keys) + 1
         self.recognizer = Recognizer(nclass, config)
@@ -34,25 +39,29 @@ class FOTSModel:
         self.detector.register_backward_hook(backward_hook)
 
     def parallelize(self):
-        self.sharedConv = torch.nn.DataParallel(self.sharedConv)
+        self.conv_det = torch.nn.DataParallel(self.conv_det)
+        self.conv_rec = torch.nn.DataParallel(self.conv_rec)
         self.recognizer = torch.nn.DataParallel(self.recognizer)
         self.detector = torch.nn.DataParallel(self.detector)
         # self.roirotate = torch.nn.DataParallel(self.roirotate)
 
     def to(self, device):
-        self.sharedConv = self.sharedConv.to(device)
+        self.conv_det = self.conv_det.to(device)
+        self.conv_rec = self.conv_rec.to(device)
         self.detector = self.detector.to(device)
         self.recognizer = self.recognizer.to(device)
 
     def summary(self):
-        self.sharedConv.summary()
+        self.conv_det.summary()
+        self.conv_rec.summary()
         self.detector.summary()
         self.recognizer.summary()
 
     def optimize(self, optimizer_type, params):
         optimizer = getattr(optim, optimizer_type)(
             [
-                {'params': self.sharedConv.parameters()},
+                {'params': self.conv_det.parameters()},
+                {'params': self.conv_rec.parameters()},
                 {'params': self.detector.parameters()},
                 {'params': self.recognizer.parameters()},
             ],
@@ -61,34 +70,38 @@ class FOTSModel:
         return optimizer
 
     def train(self):
-        self.sharedConv.train()
+        self.conv_det.train()
+        self.conv_rec.train()
         self.detector.train()
         self.recognizer.train()
 
     def eval(self):
-        self.sharedConv.eval()
+        self.conv_det.eval()
+        self.conv_rec.eval()
         self.detector.eval()
         self.recognizer.eval()
 
     def state_dict(self):
         sd = {
-            '0': self.sharedConv.state_dict(),
+            '0-1': self.conv_det.state_dict(),
+            '0-2': self.conv_rec.state_dict(),
             '1': self.detector.state_dict(),
             '2': self.recognizer.state_dict()
         }
         return sd
 
     def load_state_dict(self, sd):
-        self.sharedConv.load_state_dict(sd['0'])
+        self.conv_det.load_state_dict(sd['0-1'])
+        self.conv_det.load_state_dict(sd['0-2'])
         self.detector.load_state_dict(sd['1'])
         self.recognizer.load_state_dict(sd['2'])
 
     @property
     def training(self):
-        return self.sharedConv.training and self.detector.training and self.recognizer.training
+        return self.conv_det.training and self.conv_rec.training and self.detector.training and self.recognizer.training
 
     def parameters(self):
-        for m_module in [self.sharedConv, self.recognizer, self.detector]:
+        for m_module in [self.conv_det,self.conv_rec, self.recognizer, self.detector]:
             for m_para in m_module.parameters():
                 yield m_para
 
@@ -102,12 +115,13 @@ class FOTSModel:
             device = image.get_device()
         else:
             device = torch.device('cpu')
-        feature_map = self.sharedConv.forward(image)
+        feature_map_det = self.conv_det.forward(image)
+        feature_map_rec = self.conv_rec.forward(image)
 
-        score_map, geo_map = self.detector(feature_map)
+        score_map, geo_map = self.detector(feature_map_det)
 
         if self.training:
-            rois, lengths, indices = self.roirotate(feature_map, boxes[:, :8], mapping)
+            rois, lengths, indices = self.roirotate(feature_map_rec, boxes[:, :8], mapping)
             pred_mapping = mapping
             pred_boxes = boxes
         else:
@@ -135,7 +149,7 @@ class FOTSModel:
             if len(pred_mapping) > 0:
                 pred_boxes = np.concatenate(pred_boxes)
                 pred_mapping = np.concatenate(pred_mapping)
-                rois, lengths, indices = self.roirotate(feature_map, pred_boxes[:, :8], pred_mapping)
+                rois, lengths, indices = self.roirotate(feature_map_rec, pred_boxes[:, :8], pred_mapping)
             else:
                 return score_map, geo_map, (None, None), pred_boxes, pred_mapping, None
 
