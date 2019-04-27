@@ -23,7 +23,7 @@ class MyDataset(Dataset):
                                                                                      random_scale=np.array(
                                                                                          [0.5, 1, 2.0, 3.0]),
                                                                                      background_ratio=3. / 8)
-        if len(bboxes) == 0:
+        if bboxes is None or (bboxes is not None and len(bboxes) == 0):
             return self.__getitem__(index)
         return img_path, img, score_map, geo_map, training_mask, text, bboxes
 
