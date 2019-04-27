@@ -76,13 +76,14 @@ class ROIRotate(nn.Module):
             affine_matrix = torch.tensor(affine_matrix, device=feature.device, dtype=torch.float)
             # affine_matrix /= 1e20
 
+            # FOR DEBUG THE ROTATED FEATURE MAP
             # grid = torch.nn.functional.affine_grid(affine_matrix[np.newaxis], feature[np.newaxis].size())
             # x = torch.nn.functional.grid_sample(feature[np.newaxis], grid)
             #
             # x = x[0].permute(1, 2, 0).detach().cpu().numpy()
             # x = (x*255).astype(np.uint8)
             #
-            # cv2.imshow('img', x)
+            # cv2.imshow('img', np.hstack([x[:,:,_] for _ in range(x.shape[2])]))
             # cv2.waitKey()
 
             matrixes.append(affine_matrix)
