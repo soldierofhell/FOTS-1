@@ -58,7 +58,9 @@ class Trainer(BaseTrainer):
         """
         self.model.train()
 
-        total_loss = 0
+        # total_loss = 0
+        total_det_loss = 0
+        total_rec_loss = 0
         total_metrics = np.zeros(3)  # precious, recall, hmean
         for batch_idx, gt in enumerate(self.data_loader):
             try:
@@ -89,7 +91,9 @@ class Trainer(BaseTrainer):
                 reg_loss.backward()
                 self.optimizer.step()
 
-                total_loss += loss.item()
+                # total_loss += loss.item()
+                total_det_loss += det_loss.item()
+                total_rec_loss += reg_loss.item()
                 pred_transcripts = []
                 if len(pred_mapping) > 0:
                     pred_fns = [imagePaths[i] for i in pred_mapping]
@@ -120,7 +124,8 @@ class Trainer(BaseTrainer):
                 raise
 
         log = {
-            'loss': total_loss / len(self.data_loader),
+            'det_loss': total_det_loss / len(self.data_loader),
+            'rec_loss': total_rec_loss / len(self.data_loader),
             'precious': total_metrics[0] / len(self.data_loader),
             'recall': total_metrics[1] / len(self.data_loader),
             'hmean': total_metrics[2] / len(self.data_loader)
