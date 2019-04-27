@@ -54,7 +54,8 @@ def main(config, resume):
                       data_loader=train,
                       valid_data_loader=val,
                       train_logger=train_logger,
-                      toolbox = Toolbox)
+                      toolbox = Toolbox,
+                      keys=getattr(common_str,config['model']['keys']))
 
     trainer.train()
 
