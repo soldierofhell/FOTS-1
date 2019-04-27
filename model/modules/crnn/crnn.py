@@ -1,6 +1,7 @@
 import torch.nn as nn
 import torch
 
+
 class BidirectionalLSTM(nn.Module):
 
     def __init__(self, nIn, nHidden, nOut):
@@ -19,7 +20,7 @@ class BidirectionalLSTM(nn.Module):
         t_rec = padded_input.contiguous().view(T * b, h)
         output = self.embedding(t_rec)  # [T * b, nOut]
         output = output.view(b, T, -1)
-        output = nn.functional.log_softmax(output, dim=-1) # required by pytorch's ctcloss
+        output = nn.functional.log_softmax(output, dim=-1)  # required by pytorch's ctcloss
 
         return output
 
@@ -36,28 +37,35 @@ class HeightMaxPool(nn.Module):
 
 class CRNN(nn.Module):
 
-    def __init__(self, imgH, nc, nclass, nh, leakyRelu=False):
+    def __init__(self, img_h, num_channel, num_class, num_hidden, leakyRelu=False):
+        """
+        初始化CRNN
+        :param img_h:    图像高度，必须是8的倍数
+        :param num_channel:  传入图像的channel的数量
+        :param num_class:  字符数量+1
+        :param num_hidden:  LSTM隐层的大小
+        :param leakyRelu:   是否使用leakyRELU
+        """
         super(CRNN, self).__init__()
-
-        ks = [3, 3, 3, 3, 3, 3]
-        ps = [1, 1, 1, 1, 1, 1]
-        ss = [1, 1, 1, 1, 1, 1]
-        nm = [64, 64, 128, 128, 256, 256]
+        assert img_h % 8 == 0 and img_h > 0, '图像高度必须为8的正整数倍'
+        self.col_size = img_h // 8
+        kernel_sizes = [3, 3, 3, 3, 3, 3]
+        pads = [1, 1, 1, 1, 1, 1]
+        strides = [1, 1, 1, 1, 1, 1]
+        kernel_nums = [72] * 6
 
         cnn = nn.Sequential()
 
         def convRelu(i):
-            nIn = nc if i == 0 else nm[i - 1]
-            nOut = nm[i]
-            cnn.add_module('conv{0}'.format(i),
-                           nn.Conv2d(nIn, nOut, ks[i], ss[i], ps[i]))
+            nIn = num_channel if i == 0 else kernel_nums[i - 1]
+            nOut = kernel_nums[i]
+            cnn.add_module(f'conv{i}', nn.Conv2d(nIn, nOut, kernel_sizes[i], strides[i], pads[i]))
 
-            cnn.add_module('batchnorm{0}'.format(i), nn.BatchNorm2d(nOut))
+            cnn.add_module(f'batchnorm{i}', nn.BatchNorm2d(nOut))
             if leakyRelu:
-                cnn.add_module('relu{0}'.format(i),
-                               nn.LeakyReLU(0.2, inplace=True))
+                cnn.add_module(f'relu{i}', nn.LeakyReLU(0.2, inplace=True))
             else:
-                cnn.add_module('relu{0}'.format(i), nn.ReLU(True))
+                cnn.add_module(f'relu{i}', nn.ReLU(True))
 
         convRelu(0)
         convRelu(1)
@@ -70,11 +78,13 @@ class CRNN(nn.Module):
         cnn.add_module('HeightMaxPooling{0}'.format(2), HeightMaxPool())
 
         self.cnn = cnn
-        self.rnn = BidirectionalLSTM(256, nh, nclass)
+        self.rnn = BidirectionalLSTM(kernel_nums[-1]*self.col_size, num_hidden, num_class)
 
     def forward(self, input, lengths):
-        # conv features
+        # conv features B*C*H*W
         conv = self.cnn(input)
+        _b, _c, _h, _w = conv.shape
+        assert _h == self.col_size, '卷积结果与预期不符'
 
         # b, c, h, w_after = conv.size()
         # assert h == 1, "the height of conv must be 1"
@@ -82,7 +92,8 @@ class CRNN(nn.Module):
         # step = (w_before / w_after).ceil()
         # padded_width_after = (lengths - 1 / step).ceil()
 
-        conv = conv.squeeze(2)
+        # conv = conv.squeeze(2)
+        conv = conv.reshape((-1, _c*_h,_w))
         conv = conv.permute(0, 2, 1)  # [B, T, C]
 
         # rnn features
