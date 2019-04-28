@@ -43,7 +43,7 @@ class BaseTrainer:
         self.model.to(self.device)
 
         self.logger.debug('Model is initialized.')
-        self._log_memory_useage()
+        self._log_memory_usage()
 
         self.train_logger = train_logger
         self.optimizer = getattr(optim, config['optimizer_type'])(model.parameters(),
@@ -78,7 +78,7 @@ class BaseTrainer:
             try:
                 result = self._train_epoch(epoch)
             except torch.cuda.CudaError:
-                self._log_memory_useage()
+                self._log_memory_usage()
 
             log = {'epoch': epoch}
             for key, value in result.items():
@@ -106,8 +106,9 @@ class BaseTrainer:
                 lr = self.lr_scheduler.get_lr()[0]
                 self.logger.info('New Learning Rate: {:.8f}'.format(lr))
 
-    def _log_memory_useage(self):
-        if not self.with_cuda: return
+    def _log_memory_usage(self):
+        if not self.with_cuda:
+            return
 
         template = """Memory Usage: \n{}"""
         usage = []
