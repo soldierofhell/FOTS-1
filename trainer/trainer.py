@@ -58,7 +58,7 @@ class Trainer(BaseTrainer):
         """
         self.model.train()
 
-        # total_loss = 0
+        total_loss = 0
         total_det_loss = 0
         total_rec_loss = 0
         total_metrics = np.zeros(3)  # precious, recall, hmean
@@ -91,7 +91,7 @@ class Trainer(BaseTrainer):
                 reg_loss.backward()
                 self.optimizer.step()
 
-                # total_loss += loss.item()
+                total_loss += loss.item()
                 total_det_loss += det_loss.item()
                 total_rec_loss += reg_loss.item()
                 pred_transcripts = []
@@ -124,6 +124,7 @@ class Trainer(BaseTrainer):
                 raise
 
         log = {
+            'loss': total_loss / len(self.data_loader),
             'det_loss': total_det_loss / len(self.data_loader),
             'rec_loss': total_rec_loss / len(self.data_loader),
             'precious': total_metrics[0] / len(self.data_loader),
