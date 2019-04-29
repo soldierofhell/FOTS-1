@@ -92,7 +92,7 @@ class FOTSModel:
 
     def load_state_dict(self, sd):
         self.conv_det.load_state_dict(sd['0-1'])
-        self.conv_det.load_state_dict(sd['0-2'])
+        self.conv_rec.load_state_dict(sd['0-2'])
         self.detector.load_state_dict(sd['1'])
         self.recognizer.load_state_dict(sd['2'])
 
