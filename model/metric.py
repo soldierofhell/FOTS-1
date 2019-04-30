@@ -6,3 +6,11 @@ def fots_metric(pred, gt):
     config = icdar_eval.default_evaluation_params()
     output = icdar_eval.eval(pred, gt, config)
     return output['method']['precision'], output['method']['recall'], output['method']['hmean']
+
+
+def detection_metric(pred, gt):
+    return 0, 0, 0
+
+
+def recognition_metric(pred, gt):
+    return 0, 0, 0
