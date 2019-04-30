@@ -11,8 +11,8 @@ logger = logging.getLogger(__name__)
 
 class MyDataset(Dataset):
 
-    def __init__(self, img_root, txt_root):
-        self.image_list, self.img_name = get_images(img_root)
+    def __init__(self, img_root, txt_root,limit=None):
+        self.image_list, self.img_name = get_images(img_root,limit)
         self.txt_root = txt_root
 
     def __getitem__(self, index):
