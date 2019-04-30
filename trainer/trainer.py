@@ -62,16 +62,11 @@ class Trainer(BaseTrainer):
         total_det_loss = 0
         total_rec_loss = 0
         total_metrics = np.zeros(3)  # precious, recall, hmean
+        dataset_size = len(self.data_loader)
         for batch_idx, gt in enumerate(self.data_loader):
             try:
                 imagePaths, img, score_map, geo_map, training_mask, transcripts, boxes, mapping = gt
                 img, score_map, geo_map, training_mask = self._to_tensor(img, score_map, geo_map, training_mask)
-
-                # import cv2
-                # for i in range(img.shape[0]):
-                #     image = img[i]
-                #     for tt, bb in zip(transcripts[i], boxes[i]):
-                #         show_box(image.permute(1, 2, 0).detach().cpu().numpy()[:,:, ::-1].astype(np.uint8).copy(), bb, tt)
 
                 self.optimizer.zero_grad()
                 pred_score_map, pred_geo_map, pred_recog, pred_boxes, pred_mapping, indices = self.model.forward(img,
@@ -86,18 +81,16 @@ class Trainer(BaseTrainer):
                 det_loss, reg_loss = self.loss(score_map, pred_score_map, geo_map, pred_geo_map, recog, pred_recog,
                                                training_mask)
                 loss = det_loss + reg_loss
-                # loss.backward()
-                det_loss.backward()
-                reg_loss.backward()
+                loss.backward()
                 self.optimizer.step()
 
                 total_loss += loss.item()
                 total_det_loss += det_loss.item()
                 total_rec_loss += reg_loss.item()
                 pred_transcripts = []
-                if len(pred_mapping) > 0:
-                    pred_fns = [imagePaths[i] for i in pred_mapping]
+                pred_fns = [imagePaths[i] for i in pred_mapping]
 
+                if len(pred_mapping) > 0 and pred_recog[0] is not None:
                     pred, lengths = pred_recog
                     _, pred = pred.max(2)
                     for i in range(lengths.numel()):
@@ -124,12 +117,12 @@ class Trainer(BaseTrainer):
                 raise
 
         log = {
-            'loss': total_loss / len(self.data_loader),
-            'det_loss': total_det_loss / len(self.data_loader),
-            'rec_loss': total_rec_loss / len(self.data_loader),
-            'precious': total_metrics[0] / len(self.data_loader),
-            'recall': total_metrics[1] / len(self.data_loader),
-            'hmean': total_metrics[2] / len(self.data_loader)
+            'loss': total_loss / dataset_size,
+            'det_loss': total_det_loss / dataset_size,
+            'rec_loss': total_rec_loss / dataset_size,
+            'precious': total_metrics[0] / dataset_size,
+            'recall': total_metrics[1] / dataset_size,
+            'hmean': total_metrics[2] / dataset_size
         }
 
         if self.valid:
@@ -150,8 +143,10 @@ class Trainer(BaseTrainer):
         self.model.eval()
         total_val_metrics = np.zeros(3)
         with torch.no_grad():
-            total_loss = 0
+            total_det_loss = 0
+            total_rec_loss = 0
             print('Start validate')
+            dataset_size = len(self.valid_data_loader)
             for batch_idx, gt in enumerate(self.valid_data_loader):
                 try:
                     imagePaths, img, score_map, geo_map, training_mask, transcripts, boxes, mapping = gt
@@ -160,16 +155,17 @@ class Trainer(BaseTrainer):
                     pred_score_map, pred_geo_map, pred_recog, pred_boxes, pred_mapping, indices = self.model.forward(
                         img, boxes, mapping)
 
-                    # indice_transcripts = transcripts[indices]
-                    # labels, label_lengths = self.labelConverter.encode(indice_transcripts.flatten().tolist())
-                    # recog = (labels, label_lengths)
-                    #
-                    # det_loss, reg_loss = self.loss(score_map, pred_score_map, geo_map, pred_geo_map, recog, pred_recog,
-                    #                                training_mask)
-                    # total_loss += det_loss+reg_loss
+                    indice_transcripts = transcripts[indices]
+                    labels, label_lengths = self.labelConverter.encode(indice_transcripts.flatten().tolist())
+                    recog = (labels, label_lengths)
+
+                    det_loss, reg_loss = self.loss(score_map, pred_score_map, geo_map, pred_geo_map, recog, pred_recog,
+                                                   training_mask)
+                    total_det_loss += det_loss.item()
+                    total_rec_loss += reg_loss.item()
                     pred_transcripts = []
                     pred_fns = []
-                    if len(pred_mapping) > 0:
+                    if len(pred_mapping) > 0 and pred_recog[0] is not None:
                         pred_mapping = pred_mapping[indices]
                         pred_boxes = pred_boxes[indices]
                         pred_fns = [imagePaths[i] for i in pred_mapping]
@@ -191,8 +187,10 @@ class Trainer(BaseTrainer):
                     raise
 
         return {
-            # 'val_loss': total_loss / len(self.valid_data_loader),
-            'val_precious': total_val_metrics[0] / len(self.valid_data_loader),
-            'val_recall': total_val_metrics[1] / len(self.valid_data_loader),
-            'val_hmean': total_val_metrics[2] / len(self.valid_data_loader)
+            'val_loss': (total_rec_loss+total_det_loss) / dataset_size,
+            'val_det_loss': total_det_loss / dataset_size,
+            'val_rec_loss': total_rec_loss / dataset_size,
+            'val_precious': total_val_metrics[0] / dataset_size,
+            'val_recall': total_val_metrics[1] / dataset_size,
+            'val_hmean': total_val_metrics[2] / dataset_size
         }
