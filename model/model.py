@@ -17,91 +17,79 @@ class FOTSModel:
 
     def __init__(self, config):
         self.mode = config['model']['mode']
-        keys = getattr(common_str,config['model']['keys'])
+        assert self.mode.lower() in ['recognition','detection','united'],f'模式[{self.mode}]不支持'
+        keys = getattr(common_str, config['model']['keys'])
         backbone_network = pm.__dict__['resnet50'](pretrained='imagenet')  # resnet50 in paper
         backbone_network.eval()
         # backbone as feature extractor
         for param in backbone_network.parameters():
             param.requires_grad = False
-        self.conv_det = shared_conv.SharedConv(backbone_network, config)
-        self.conv_rec = shared_conv.SharedConv(backbone_network, config)
-
-        nclass = len(keys) + 1
-        self.recognizer = Recognizer(nclass, config)
-        self.detector = Detector(config)
-        self.roirotate = ROIRotate(config['model']['crnn']['img_h'])
 
         def backward_hook(self, grad_input, grad_output):
             for g in grad_input:
                 g[g != g] = 0  # replace all nan/inf in gradients to zero
 
-        self.recognizer.register_backward_hook(backward_hook)
-        self.detector.register_backward_hook(backward_hook)
+        if not self.mode == 'detection':
+            self.conv_rec = shared_conv.SharedConv(backbone_network, config)
+            nclass = len(keys) + 1
+            self.recognizer = Recognizer(nclass, config)
+            self.roirotate = ROIRotate(config['model']['crnn']['img_h'])
+            self.recognizer.register_backward_hook(backward_hook)
+
+        if not self.mode == 'recognition':
+            self.conv_det = shared_conv.SharedConv(backbone_network, config)
+            self.detector = Detector(config)
+            self.detector.register_backward_hook(backward_hook)
+
+    def available_models(self):
+        if self.mode == 'detection':
+            return ['conv_det', 'detector']
+        elif self.mode == 'recognition':
+            return ['conv_rec', 'recognizer']
+        else:
+            return ['conv_det', 'detector', 'conv_rec', 'recognizer']
 
     def parallelize(self):
-        self.conv_det = torch.nn.DataParallel(self.conv_det)
-        self.conv_rec = torch.nn.DataParallel(self.conv_rec)
-        self.recognizer = torch.nn.DataParallel(self.recognizer)
-        self.detector = torch.nn.DataParallel(self.detector)
-        # self.roirotate = torch.nn.DataParallel(self.roirotate)
+        for m_model in self.available_models():
+            setattr(self, m_model, torch.nn.DataParallel(getattr(self, m_model)))
 
     def to(self, device):
-        self.conv_det = self.conv_det.to(device)
-        self.conv_rec = self.conv_rec.to(device)
-        self.detector = self.detector.to(device)
-        self.recognizer = self.recognizer.to(device)
+        for m_model in self.available_models():
+            setattr(self, m_model, getattr(self, m_model).to(device))
 
     def summary(self):
-        self.conv_det.summary()
-        self.conv_rec.summary()
-        self.detector.summary()
-        self.recognizer.summary()
+        for m_model in self.available_models():
+            getattr(self, m_model).summary()
 
     def optimize(self, optimizer_type, params):
         optimizer = getattr(optim, optimizer_type)(
-            [
-                {'params': self.conv_det.parameters()},
-                {'params': self.conv_rec.parameters()},
-                {'params': self.detector.parameters()},
-                {'params': self.recognizer.parameters()},
-            ],
+            [{'params': getattr(self, m_model).parameters()} for m_model in self.available_models()],
             **params
         )
         return optimizer
 
     def train(self):
-        self.conv_det.train()
-        self.conv_rec.train()
-        self.detector.train()
-        self.recognizer.train()
+        for m_model in self.available_models():
+            getattr(self, m_model).train()
 
     def eval(self):
-        self.conv_det.eval()
-        self.conv_rec.eval()
-        self.detector.eval()
-        self.recognizer.eval()
+        for m_model in self.available_models():
+            getattr(self, m_model).eval()
 
     def state_dict(self):
-        sd = {
-            '0-1': self.conv_det.state_dict(),
-            '0-2': self.conv_rec.state_dict(),
-            '1': self.detector.state_dict(),
-            '2': self.recognizer.state_dict()
-        }
-        return sd
+        return {f'{m_ind}': getattr(self, m_model).state_dict()
+                for m_ind, m_model in enumerate(self.available_models())}
 
     def load_state_dict(self, sd):
-        self.conv_det.load_state_dict(sd['0-1'])
-        self.conv_rec.load_state_dict(sd['0-2'])
-        self.detector.load_state_dict(sd['1'])
-        self.recognizer.load_state_dict(sd['2'])
+        for m_ind, m_model in enumerate(self.available_models()):
+            getattr(self, m_model).load_state_dict(sd[f'{m_ind}'])
 
     @property
     def training(self):
-        return self.conv_det.training and self.conv_rec.training and self.detector.training and self.recognizer.training
+        return all([getattr(self, m_model).training for m_model in self.available_models()])
 
     def parameters(self):
-        for m_module in [self.conv_det,self.conv_rec, self.recognizer, self.detector]:
+        for m_module in [getattr(self, m_module) for m_module in self.available_models()]:
             for m_para in m_module.parameters():
                 yield m_para
 
@@ -115,16 +103,30 @@ class FOTSModel:
             device = image.get_device()
         else:
             device = torch.device('cpu')
-        feature_map_det = self.conv_det.forward(image)
-        feature_map_rec = self.conv_rec.forward(image)
+        if not self.mode == 'recognition':
+            feature_map_det = self.conv_det.forward(image)
+            score_map, geo_map = self.detector(feature_map_det)
+            if self.mode == 'detection':
+                return score_map, geo_map, (None, None), boxes, mapping, mapping
 
-        score_map, geo_map = self.detector(feature_map_det)
+        if not self.mode == 'detection':
+            feature_map_rec = self.conv_rec.forward(image)
 
         if self.training:
             rois, lengths, indices = self.roirotate(feature_map_rec, boxes[:, :8], mapping)
             pred_mapping = mapping
             pred_boxes = boxes
+            if self.mode == 'recognition':
+                return None,None,\
+                       (self.recognizer(rois, lengths).permute(1, 0, 2),torch.tensor(lengths).to(device)),\
+                       boxes, mapping, indices
         else:
+            if self.mode == 'recognition':
+                rois, lengths, indices = self.roirotate(feature_map_rec, boxes[:, :8], mapping)
+                return None, None, \
+                       (self.recognizer(rois, lengths).permute(1, 0, 2), torch.tensor(lengths).to(device)), \
+                       boxes, mapping, indices
+
             score = score_map.permute(0, 2, 3, 1)
             geometry = geo_map.permute(0, 2, 3, 1)
             score = score.detach().cpu().numpy()
