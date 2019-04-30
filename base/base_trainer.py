@@ -11,7 +11,7 @@ class BaseTrainer:
     """
     Base class for all trainers
     """
-    def __init__(self, model, loss, metrics, resume,finetune, config, train_logger=None):
+    def __init__(self, model, loss, metrics,finetune,resume, config, train_logger=None):
         self.config = config
         self.logger = logging.getLogger(self.__class__.__name__)
         self.model = model
@@ -189,9 +189,9 @@ class BaseTrainer:
         self.logger.info("Loading checkpoint: {} ...".format(checkpoint_path))
         checkpoint = torch.load(checkpoint_path)
         self.model.load_state_dict(checkpoint['state_dict'])
-        self.optimizer.load_state_dict(checkpoint['optimizer'])
-        if self.with_cuda:
-            for state in self.optimizer.state.values():
-                for k, v in state.items():
-                    if isinstance(v, torch.Tensor):
-                        state[k] = v.cuda(self.device)
+        # self.optimizer.load_state_dict(checkpoint['optimizer'])
+        # if self.with_cuda:
+        #     for state in self.optimizer.state.values():
+        #         for k, v in state.items():
+        #             if isinstance(v, torch.Tensor):
+        #                 state[k] = v.cuda(self.device)
