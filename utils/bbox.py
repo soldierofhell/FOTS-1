@@ -311,7 +311,7 @@ class Toolbox:
         return to_return
 
     @staticmethod
-    def predict(im_fn, model, with_img, output_dir, with_gpu, labels, output_txt_dir, label_converter):
+    def predict(im_fn, model, with_img, output_dir, with_gpu, labels, output_txt_dir, label_converter,enable_correct=False):
         im = cv2.imread(im_fn.as_posix())[:, :, ::-1]
         im_resized, (ratio_h, ratio_w) = Toolbox.resize_image(im)
         im_resized = im_resized.astype(np.float32)
@@ -333,15 +333,17 @@ class Toolbox:
             boxes = boxes[:, :8].reshape((-1, 4, 2))
             boxes[:, :, 0] /= ratio_w
             boxes[:, :, 1] /= ratio_h
-            _, preds = preds.max(2)
-            pred_transcripts = []
-            for i in range(lengths.numel()):
-                m_text_len = lengths[i]
-                m_text_code = preds[:m_text_len, i]
-                t = label_converter.decode(m_text_code, m_text_len)
-                pred_transcripts.append(t)
-            pred_transcripts = np.array(pred_transcripts)
-            boxes = boxes[indices]
+            if preds is not None:
+                _, preds = preds.max(2)
+                pred_transcripts = []
+                for i in range(lengths.numel()):
+                    m_text_len = lengths[i]
+                    m_text_code = preds[:m_text_len, i]
+                    t = label_converter.decode(m_text_code, m_text_len)
+                    pred_transcripts.append(t)
+                boxes = boxes[indices]
+            else:
+                pred_transcripts = ['']*len(boxes)
 
             for m_box, m_pred_transcript in zip(boxes, pred_transcripts):
                 m_box = Toolbox.sort_poly(m_box.astype(np.int32))
