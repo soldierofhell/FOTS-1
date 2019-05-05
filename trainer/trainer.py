@@ -65,18 +65,21 @@ class Trainer(BaseTrainer):
         dataset_size = len(self.data_loader)
         for batch_idx, gt in enumerate(self.data_loader):
             try:
-                imagePaths, img, score_map, geo_map, training_mask, transcripts, boxes, mapping = gt
+                image_paths, img, score_map, geo_map, training_mask, transcripts, boxes, mapping = gt
                 img, score_map, geo_map, training_mask = self._to_tensor(img, score_map, geo_map, training_mask)
 
                 self.optimizer.zero_grad()
                 pred_score_map, pred_geo_map, pred_recog, pred_boxes, pred_mapping, indices = self.model.forward(img,
                                                                                                                  boxes,
                                                                                                                  mapping)
-                indice_transcripts = transcripts[indices]
-                pred_boxes = pred_boxes[indices]
-                pred_mapping = pred_mapping[indices]
-                labels, label_lengths = self.labelConverter.encode(indice_transcripts.tolist())
-                recog = (labels, label_lengths)
+                if indices is not None:
+                    indice_transcripts = transcripts[indices]
+                    pred_boxes = pred_boxes[indices]
+                    pred_mapping = pred_mapping[indices]
+                    labels, label_lengths = self.labelConverter.encode(indice_transcripts.tolist())
+                    recog = (labels, label_lengths)
+                else:
+                    recog = ([],torch.Tensor(0))
 
                 det_loss, reg_loss = self.loss(score_map, pred_score_map, geo_map, pred_geo_map, recog, pred_recog,
                                                training_mask)
@@ -86,9 +89,12 @@ class Trainer(BaseTrainer):
 
                 total_loss += loss.item()
                 total_det_loss += det_loss.item()
+                # bad case定位
+                if det_loss.item() >= 0.01:
+                    print(image_paths)
                 total_rec_loss += reg_loss.item()
                 pred_transcripts = []
-                pred_fns = [imagePaths[i] for i in pred_mapping]
+                pred_fns = [image_paths[i] for i in pred_mapping]
 
                 if len(pred_mapping) > 0 and pred_recog[0] is not None:
                     pred, lengths = pred_recog
@@ -100,7 +106,7 @@ class Trainer(BaseTrainer):
                         pred_transcripts.append(t)
                     pred_transcripts = np.array(pred_transcripts)
 
-                gt_fns = [imagePaths[i] for i in mapping]
+                gt_fns = [image_paths[i] for i in mapping]
                 total_metrics += self._eval_metrics((pred_boxes, pred_transcripts, pred_fns),
                                                     (boxes, transcripts, gt_fns))
 
@@ -113,7 +119,7 @@ class Trainer(BaseTrainer):
                             100.0 * batch_idx / len(self.data_loader),
                             loss.item(), det_loss.item(), reg_loss.item()))
             except:
-                print(imagePaths)
+                print(image_paths)
                 raise
 
         log = {
@@ -187,7 +193,7 @@ class Trainer(BaseTrainer):
                     raise
 
         return {
-            'val_loss': (total_rec_loss+total_det_loss) / dataset_size,
+            'val_loss': (total_rec_loss + total_det_loss) / dataset_size,
             'val_det_loss': total_det_loss / dataset_size,
             'val_rec_loss': total_rec_loss / dataset_size,
             'val_precious': total_val_metrics[0] / dataset_size,
