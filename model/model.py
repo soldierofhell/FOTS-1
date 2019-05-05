@@ -33,13 +33,14 @@ class FOTSModel:
             self.conv_rec = shared_conv.SharedConv(backbone_network, config)
             nclass = len(keys) + 1
             self.recognizer = Recognizer(nclass, config)
-            self.roirotate = ROIRotate(config['model']['crnn']['img_h'])
             self.recognizer.register_backward_hook(backward_hook)
 
         if not self.mode == 'recognition':
             self.conv_det = shared_conv.SharedConv(backbone_network, config)
             self.detector = Detector(config)
             self.detector.register_backward_hook(backward_hook)
+
+        self.roirotate = ROIRotate(config['model']['crnn']['img_h'])
 
     def available_models(self):
         if self.mode == 'detection':
@@ -124,20 +125,18 @@ class FOTSModel:
                 if len(detected_boxes) > 0:
                     _pred_mapping.append(np.array([i] * num_detected_boxes))
                     _pred_boxes.append(detected_boxes)
-            if len(_pred_mapping) > 0:
-                _pred_boxes = np.concatenate(_pred_boxes)
-                _pred_mapping = np.concatenate(_pred_mapping)
             return _pred_boxes, _pred_mapping
 
         score_map, geo_map, (preds, lengths), pred_boxes, pred_mapping, indices = \
-            None, None, (None, None), None, mapping, mapping
+            None, None, (None, torch.Tensor(0)), boxes, mapping, mapping
 
         if self.mode == 'detection':
             feature_map_det = self.conv_det.forward(image)
             score_map, geo_map = self.detector(feature_map_det)
-            pred_boxes, pred_mapping = _compute_boxes(score_map, geo_map)
-            if not len(pred_mapping) > 0:
-                lengths,indices = 0,None
+            if not self.training:
+                pred_boxes, pred_mapping = _compute_boxes(score_map, geo_map)
+            else:
+                pred_boxes,pred_mapping = boxes,mapping
 
         elif self.mode == 'recognition':
             pred_boxes, pred_mapping = boxes, mapping
