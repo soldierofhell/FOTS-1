@@ -130,12 +130,15 @@ class FOTSModel:
             return _pred_boxes, _pred_mapping
 
         score_map, geo_map, (preds, lengths), pred_boxes, pred_mapping, indices = \
-            None, None, (None, 0), None, None, None
+            None, None, (None, None), None, mapping, mapping
 
         if self.mode == 'detection':
             feature_map_det = self.conv_det.forward(image)
             score_map, geo_map = self.detector(feature_map_det)
             pred_boxes, pred_mapping = _compute_boxes(score_map, geo_map)
+            if not len(pred_mapping) > 0:
+                lengths,indices = 0,None
+
         elif self.mode == 'recognition':
             pred_boxes, pred_mapping = boxes, mapping
             feature_map_rec = self.conv_rec.forward(image)
