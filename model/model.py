@@ -124,9 +124,9 @@ class FOTSModel:
                 if len(detected_boxes) > 0:
                     _pred_mapping.append(np.array([i] * num_detected_boxes))
                     _pred_boxes.append(detected_boxes)
-                if len(_pred_mapping) > 0:
-                    _pred_boxes = np.concatenate(_pred_boxes)
-                    _pred_mapping = np.concatenate(_pred_mapping)
+            if len(_pred_mapping) > 0:
+                _pred_boxes = np.concatenate(_pred_boxes)
+                _pred_mapping = np.concatenate(_pred_mapping)
             return _pred_boxes, _pred_mapping
 
         score_map, geo_map, (preds, lengths), pred_boxes, pred_mapping, indices = \
