@@ -17,7 +17,7 @@ class FOTSModel:
 
     def __init__(self, config):
         self.mode = config['model']['mode']
-        assert self.mode.lower() in ['recognition','detection','united'],f'模式[{self.mode}]不支持'
+        assert self.mode.lower() in ['recognition', 'detection', 'united'], f'模式[{self.mode}]不支持'
         keys = getattr(common_str, config['model']['keys'])
         backbone_network = pm.__dict__['resnet50'](pretrained='imagenet')  # resnet50 in paper
         backbone_network.eval()
@@ -103,39 +103,16 @@ class FOTSModel:
             device = image.get_device()
         else:
             device = torch.device('cpu')
-        if not self.mode == 'recognition':
-            feature_map_det = self.conv_det.forward(image)
-            score_map, geo_map = self.detector(feature_map_det)
-            if self.mode == 'detection':
-                return score_map, geo_map, (None, None), boxes, mapping, mapping
 
-        if not self.mode == 'detection':
-            feature_map_rec = self.conv_rec.forward(image)
-
-        if self.training:
-            rois, lengths, indices = self.roirotate(feature_map_rec, boxes[:, :8], mapping)
-            pred_mapping = mapping
-            pred_boxes = boxes
-            if self.mode == 'recognition':
-                return None,None,\
-                       (self.recognizer(rois, lengths).permute(1, 0, 2),torch.tensor(lengths).to(device)),\
-                       boxes, mapping, indices
-        else:
-            if self.mode == 'recognition':
-                rois, lengths, indices = self.roirotate(feature_map_rec, boxes[:, :8], mapping)
-                return None, None, \
-                       (self.recognizer(rois, lengths).permute(1, 0, 2), torch.tensor(lengths).to(device)), \
-                       boxes, mapping, indices
-
-            score = score_map.permute(0, 2, 3, 1)
-            geometry = geo_map.permute(0, 2, 3, 1)
+        def _compute_boxes(_score_map, _geo_map):
+            score = _score_map.permute(0, 2, 3, 1)
+            geometry = _geo_map.permute(0, 2, 3, 1)
             score = score.detach().cpu().numpy()
             geometry = geometry.detach().cpu().numpy()
 
             timer = {'net': 0, 'restore': 0, 'nms': 0}
-
-            pred_boxes = []
-            pred_mapping = []
+            _pred_mapping = []
+            _pred_boxes = []
             for i in range(score.shape[0]):
                 cur_score = score[i, :, :, 0]
                 cur_geometry = geometry[i, :, :, ]
@@ -145,19 +122,37 @@ class FOTSModel:
                 num_detected_boxes = detected_boxes.shape[0]
 
                 if len(detected_boxes) > 0:
-                    pred_mapping.append(np.array([i] * num_detected_boxes))
-                    pred_boxes.append(detected_boxes)
+                    _pred_mapping.append(np.array([i] * num_detected_boxes))
+                    _pred_boxes.append(detected_boxes)
+                if len(_pred_mapping) > 0:
+                    _pred_boxes = np.concatenate(_pred_boxes)
+                    _pred_mapping = np.concatenate(_pred_mapping)
+            return _pred_boxes, _pred_mapping
 
-            if len(pred_mapping) > 0:
-                pred_boxes = np.concatenate(pred_boxes)
-                pred_mapping = np.concatenate(pred_mapping)
-                rois, lengths, indices = self.roirotate(feature_map_rec, pred_boxes[:, :8], pred_mapping)
+        score_map, geo_map, (preds, lengths), pred_boxes, pred_mapping, indices = \
+            None, None, (None, 0), None, None, None
+
+        if self.mode == 'detection':
+            feature_map_det = self.conv_det.forward(image)
+            score_map, geo_map = self.detector(feature_map_det)
+            pred_boxes, pred_mapping = _compute_boxes(score_map, geo_map)
+        elif self.mode == 'recognition':
+            pred_boxes, pred_mapping = boxes, mapping
+            feature_map_rec = self.conv_rec.forward(image)
+            rois, lengths, indices = self.roirotate(feature_map_rec, pred_boxes[:, :8], pred_mapping)
+            preds = self.recognizer(rois, lengths).permute(1, 0, 2)
+            lengths = torch.tensor(lengths).to(device)
+        elif self.model == 'united':
+            feature_map_det = self.conv_det.forward(image)
+            score_map, geo_map = self.detector(feature_map_det)
+            if self.training:
+                pred_boxes, pred_mapping = boxes, mapping
             else:
-                return score_map, geo_map, (None, None), pred_boxes, pred_mapping, None
-
-        lengths = torch.tensor(lengths).to(device)
-        preds = self.recognizer(rois, lengths)
-        preds = preds.permute(1, 0, 2)  # B, T, C -> T, B, C
+                pred_boxes, pred_mapping = _compute_boxes(score_map, geo_map)
+            feature_map_rec = self.conv_rec.forward(image)
+            rois, lengths, indices = self.roirotate(feature_map_rec, pred_boxes[:, :8], pred_mapping)
+            preds = self.recognizer(rois, lengths).permute(1, 0, 2)
+            lengths = torch.tensor(lengths).to(device)
 
         return score_map, geo_map, (preds, lengths), pred_boxes, pred_mapping, indices
 
