@@ -149,7 +149,7 @@ def crop_area(im, polys, tags, crop_background=False, max_tries=50):
         if len(selected_polys) == 0:
             # no text in this area
             if crop_background:
-                return im[ymin:ymax + 1, xmin:xmax + 1, :], polys[selected_polys], tags[selected_polys],[]
+                return im[ymin:ymax + 1, xmin:xmax + 1, :], polys[selected_polys], tags[selected_polys], []
             else:
                 continue
         im = im[ymin:ymax + 1, xmin:xmax + 1, :]
@@ -569,9 +569,22 @@ def generate_rbox(im_size, polys, tags):
     return score_map, geo_map, training_mask, rectangles
 
 
+def rotate_image_and_points(image, points, angle):
+    # center pivot
+    image_center = tuple(np.array(image.shape[1::-1]) / 2)
+    rot_mat = cv2.getRotationMatrix2D(image_center, angle, 1.0)
+    rotated_img = cv2.warpAffine(image, rot_mat, image.shape[1::-1], flags=cv2.INTER_LINEAR,
+                                 borderMode=cv2.BORDER_REPLICATE)
+    points_ones = np.hstack([points, np.ones(shape=(len(points), 1))])
+    rotated_pts = rot_mat.dot(points_ones.T).T
+    return rotated_img, rotated_pts
+
+
 def image_label(txt_root, image_list, img_name, index,
                 input_size=512, random_scale=np.array([0.5, 1, 2.0, 3.0]),
-                background_ratio=3. / 8):
+                background_ratio=3. / 8,
+                random_rotate_degree=np.arange(-15,16,2),
+                ):
     """
     get image's corresponding matrix and ground truth
     如果预测样张较小的话，input_size需要适当调小，且是128的整数倍数
@@ -590,9 +603,12 @@ def image_label(txt_root, image_list, img_name, index,
         text_polys, texts, text_tags = check_and_validate_polys(text_polys, texts, text_tags, (h, w))
         # 选择随机的缩放比例
         rd_scale = np.random.choice(random_scale)
+        rd_rotate_degree = np.random.choice(random_rotate_degree)
         # 将当前图像缩放到随机的缩放比例
         cur_img = cv2.resize(cur_img, dsize=None, fx=rd_scale, fy=rd_scale)
         text_polys *= rd_scale
+        cur_img, text_polys = rotate_image_and_points(cur_img, np.reshape(text_polys, (-1, 2)), rd_rotate_degree)
+        text_polys = np.reshape(text_polys, (-1,4, 2))
         rectangles = []
 
         # 一定概率概率随机裁剪背景还是有多边形的区域
