@@ -89,9 +89,9 @@ class Trainer(BaseTrainer):
 
                 total_loss += loss.item()
                 total_det_loss += det_loss.item()
-                # bad case定位
-                if det_loss.item() >= 0.01:
-                    print(image_paths)
+                # # bad case定位
+                # if det_loss.item() >= 0.01:
+                #     print(image_paths)
                 total_rec_loss += reg_loss.item()
                 pred_transcripts = []
                 pred_fns = [image_paths[i] for i in pred_mapping]
