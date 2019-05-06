@@ -23,7 +23,7 @@ class FOTSModel:
         backbone_network.eval()
         # backbone as feature extractor
         for param in backbone_network.parameters():
-            param.requires_grad = False
+            param.requires_grad = config['need_grad_backbone']
 
         def backward_hook(self, grad_input, grad_output):
             for g in grad_input:
