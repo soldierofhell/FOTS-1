@@ -31,8 +31,8 @@ class FOTSModel:
 
         if not self.mode == 'detection':
             self.conv_rec = shared_conv.SharedConv(backbone_network, config)
-            nclass = len(keys) + 1
-            self.recognizer = Recognizer(nclass, config)
+            self.nclass = len(keys) + 1
+            self.recognizer = Recognizer(self.nclass, config)
             self.recognizer.register_backward_hook(backward_hook)
 
         if not self.mode == 'recognition':
@@ -152,10 +152,14 @@ class FOTSModel:
                 pred_boxes, pred_mapping = boxes, mapping
             else:
                 pred_boxes, pred_mapping = _compute_boxes(score_map, geo_map)
-            feature_map_rec = self.conv_rec.forward(image)
-            rois, lengths, indices = self.roirotate(feature_map_rec, pred_boxes[:, :8], pred_mapping)
-            preds = self.recognizer(rois, lengths).permute(1, 0, 2)
-            lengths = torch.tensor(lengths).to(device)
+            if len(pred_boxes) > 0:
+                feature_map_rec = self.conv_rec.forward(image)
+                rois, lengths, indices = self.roirotate(feature_map_rec, pred_boxes[:, :8], pred_mapping)
+                preds = self.recognizer(rois, lengths).permute(1, 0, 2)
+                lengths = torch.tensor(lengths).to(device)
+            else:
+                preds = torch.empty(1,image.shape[0],self.nclass, dtype=torch.float)
+                lengths = torch.ones(image.shape[0])
 
         return score_map, geo_map, (preds, lengths), pred_boxes, pred_mapping, indices
 
