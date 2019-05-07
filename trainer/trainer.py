@@ -79,9 +79,14 @@ class Trainer(BaseTrainer):
                     labels, label_lengths = self.labelConverter.encode(indice_transcripts.tolist())
                     recog = (labels, label_lengths)
                 else:
-                    recog = ([],torch.Tensor(0))
+                    recog = (None,None)
 
-                det_loss, reg_loss = self.loss(score_map, pred_score_map, geo_map, pred_geo_map, recog, pred_recog,
+                det_loss, reg_loss = self.loss(score_map,
+                                               pred_score_map if pred_score_map is not None else score_map,
+                                               geo_map,
+                                               pred_geo_map if pred_geo_map is not None else geo_map,
+                                               recog,
+                                               pred_recog,
                                                training_mask)
                 loss = det_loss + reg_loss
                 loss.backward()
