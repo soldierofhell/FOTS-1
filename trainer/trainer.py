@@ -172,8 +172,12 @@ class Trainer(BaseTrainer):
 
                     det_loss, reg_loss = self.loss(score_map, pred_score_map, geo_map, pred_geo_map, recog, pred_recog,
                                                    training_mask)
+
                     total_det_loss += det_loss.item()
-                    total_rec_loss += reg_loss.item()
+                    if reg_loss.item() == np.inf:
+                        total_rec_loss += 100
+                    else:
+                        total_rec_loss += reg_loss.item()
                     pred_transcripts = []
                     pred_fns = []
                     if len(pred_mapping) > 0 and pred_recog[0] is not None:
