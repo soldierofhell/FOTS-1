@@ -145,7 +145,7 @@ class FOTSModel:
             rois, lengths, indices = self.roirotate(feature_map_rec, pred_boxes[:, :8], pred_mapping)
             preds = self.recognizer(rois, lengths).permute(1, 0, 2)
             lengths = torch.tensor(lengths).to(device)
-        elif self.model == 'united':
+        elif self.mode == 'united':
             feature_map_det = self.conv_det.forward(image)
             score_map, geo_map = self.detector(feature_map_det)
             if self.training:
