@@ -125,7 +125,8 @@ class FOTSModel:
                 if len(detected_boxes) > 0:
                     _pred_mapping.append(np.array([i] * num_detected_boxes))
                     _pred_boxes.append(detected_boxes)
-            return _pred_boxes, _pred_mapping
+            return np.concatenate(_pred_boxes) if len(_pred_boxes) > 0 else [], \
+                   np.concatenate(_pred_mapping) if len(_pred_mapping) > 0 else []
 
         score_map, geo_map, (preds, lengths), pred_boxes, pred_mapping, indices = \
             None, None, (None, torch.Tensor(0)), boxes, mapping, mapping
