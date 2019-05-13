@@ -1,26 +1,28 @@
 {
-    "name": "FOTS",
+    "name": "united_2019-05-13_自有数据",
     "cuda": true,
     "gpus": [0],
     "finetune": "",
+    "need_grad_backbone": true,
     "data_loader": {
-        "dataset":"icdar2015",
-        "data_dir": "./datasets/ICDAR2015",
-        "batch_size": 1,
+        "dataset":"mydataset",
+        "image_dir": "/data/OCR/own_dataset/training_images",
+        "annotation_dir": "/data/OCR/own_dataset/training_gt",
+        "batch_size": 4,
         "shuffle": true,
-        "workers": 4
+        "workers": 0
     },
     "validation": {
-        "validation_split": 0.1,
+        "validation_split": 0.15,
         "shuffle": true
     },
 
     "lr_scheduler_type": "ExponentialLR",
-    "lr_scheduler_freq": 10000,
+    "lr_scheduler_freq": 50,
     "lr_scheduler": {
             "gamma": 0.94
     },
- 
+
     "optimizer_type": "Adam",
     "optimizer": {
         "lr": 0.0001,
@@ -29,8 +31,8 @@
     "loss": "FOTSLoss",
     "metrics": ["fots_metric"],
     "trainer": {
-        "epochs": 100000,
-        "save_dir": "saved/",
+        "epochs": 10000,
+        "save_dir": "/data/OCR/model/own_dataset",
         "save_freq": 1,
         "verbosity": 2,
         "monitor": "loss",
@@ -38,6 +40,12 @@
     },
     "arch": "FOTSModel",
     "model": {
-        "mode": "detection"
+        "mode": "united",
+        "scale": 512,
+        "crnn": {
+            "img_h": 16,
+            "hidden": 1024
+        },
+        "keys": "number_and_dot"
     }
 }
