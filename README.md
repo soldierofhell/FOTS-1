@@ -7,9 +7,9 @@
 
 ### 场景1：特定部分文本
 
-![1557730185462](./imgs/result_example/scenario_1/1.png)
+![1557730185462](imgs/example/scenario_1/1.png)
 
-![1557730365238](./imgs/result_example/scenario_1/2.png)
+![1557730365238](imgs/example/scenario_1/2.png)
 
 ## HOW TO RUN
 ### 全局参数配置
