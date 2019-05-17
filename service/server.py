@@ -24,7 +24,7 @@ class OCRServer(base_pb2_grpc.OCRServicer):
         """
         负责服务初始化
         """
-        self.model = FOTSModel(config)
+        self.model = FOTSModel(config, False)
         self.model.eval()
         self.config = config
         self.model.load_state_dict(torch.load(config['model_path'])['state_dict'])
@@ -71,10 +71,10 @@ def serve():
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10),
                          options=[('grpc.max_send_message_length', 5 * 1024 * 1024),
                                   ('grpc.max_receive_message_length', 5 * 1024 * 1024)])
-    with open('config_deploy.json',encoding='utf-8',mode='r') as to_read:
+    with open('config_deploy.json', encoding='utf-8', mode='r') as to_read:
         server_conf = json.loads(to_read.read())
     base_pb2_grpc.add_OCRServicer_to_server(OCRServer(server_conf), server)
-    server.add_insecure_port('[::]:%d'%server_conf['port'])
+    server.add_insecure_port('[::]:%d' % server_conf['port'])
     server.start()
     try:
         while True:
