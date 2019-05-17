@@ -1,5 +1,6 @@
 import math
 import time
+from pathlib import Path
 
 import cv2
 import numpy as np
@@ -311,8 +312,14 @@ class Toolbox:
         return to_return
 
     @staticmethod
-    def predict(im_fn, model, with_img, output_dir, with_gpu, labels, output_txt_dir, label_converter,enable_correct=False):
-        im = cv2.imread(im_fn.as_posix())[:, :, ::-1]
+    def predict(to_predict_img, model, with_img, output_dir, with_gpu, labels, output_txt_dir, label_converter,
+                enable_correct=False):
+        if isinstance(to_predict_img, Path):
+            im = cv2.imread(to_predict_img.as_posix())[:, :, ::-1]
+        elif isinstance(to_predict_img, Image.Image):
+            im = np.array(to_predict_img)[:, :, ::-1]
+        else:
+            return None, None, None
         im_resized, (ratio_h, ratio_w) = Toolbox.resize_image(im)
         im_resized = im_resized.astype(np.float32)
         im_resized = torch.from_numpy(im_resized)
@@ -343,7 +350,7 @@ class Toolbox:
                     pred_transcripts.append(t)
                 boxes = boxes[indices]
             else:
-                pred_transcripts = ['']*len(boxes)
+                pred_transcripts = [''] * len(boxes)
 
             for m_box, m_pred_transcript in zip(boxes, pred_transcripts):
                 m_box = Toolbox.sort_poly(m_box.astype(np.int32))
@@ -361,12 +368,15 @@ class Toolbox:
                 texts.append(m_pred_transcript)
 
             if with_img:
-                font_file_path = os.path.join(os.path.dirname(__file__),"HanYiXiaoBoHuaYueYuan-Jian-2.ttf")
+                font_file_path = os.path.join(os.path.dirname(__file__), "HanYiXiaoBoHuaYueYuan-Jian-2.ttf")
                 ttf_font = ImageFont.truetype(font_file_path, 20)
                 im = np.array(Toolbox.draw_annotation(Image.fromarray(im), polys, texts, ttf_font))
+            else:
+                polys = list(zip(polys, texts))
 
-        if output_txt_dir is not None:
-            gt = output_txt_dir / im_fn.with_name('res_{}'.format(im_fn.stem)).with_suffix('.txt').name
+        if output_txt_dir is not None and isinstance(to_predict_img, Path):
+            gt = output_txt_dir / to_predict_img.with_name('res_{}'.format(to_predict_img.stem)).with_suffix(
+                '.txt').name
 
             with gt.open(mode='a', encoding='utf-8') as f:
                 if boxes is not None:
@@ -382,8 +392,8 @@ class Toolbox:
                 res = (0, len(labels), 0)
         else:
             res = (0, 0, 0)
-        if output_dir:
-            img_path = output_dir / im_fn.name
+        if output_dir and isinstance(to_predict_img, Path):
+            img_path = output_dir / to_predict_img.name
             cv2.imwrite(img_path.as_posix(), im[:, :, ::-1])
         return polys, im, res
 
