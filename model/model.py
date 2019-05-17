@@ -15,15 +15,16 @@ import utils.common_str as common_str
 
 class FOTSModel:
 
-    def __init__(self, config):
+    def __init__(self, config, is_train=True):
         self.mode = config['model']['mode']
         assert self.mode.lower() in ['recognition', 'detection', 'united'], f'模式[{self.mode}]不支持'
         keys = getattr(common_str, config['model']['keys'])
-        backbone_network = pm.__dict__['resnet50'](pretrained='imagenet')  # resnet50 in paper
-        backbone_network.eval()
-        # backbone as feature extractor
-        for param in backbone_network.parameters():
-            param.requires_grad = config['need_grad_backbone']
+        if is_train:
+            backbone_network = pm.__dict__['resnet50'](pretrained='imagenet')  # resnet50 in paper
+            for param in backbone_network.parameters():
+                param.requires_grad = config['need_grad_backbone']
+        else:
+            backbone_network = pm.__dict__['resnet50'](pretrained=None)
 
         def backward_hook(self, grad_input, grad_output):
             for g in grad_input:
@@ -137,7 +138,7 @@ class FOTSModel:
             if not self.training:
                 pred_boxes, pred_mapping = _compute_boxes(score_map, geo_map)
             else:
-                pred_boxes,pred_mapping = boxes,mapping
+                pred_boxes, pred_mapping = boxes, mapping
 
         elif self.mode == 'recognition':
             pred_boxes, pred_mapping = boxes, mapping
@@ -158,7 +159,7 @@ class FOTSModel:
                 preds = self.recognizer(rois, lengths).permute(1, 0, 2)
                 lengths = torch.tensor(lengths).to(device)
             else:
-                preds = torch.empty(1,image.shape[0],self.nclass, dtype=torch.float)
+                preds = torch.empty(1, image.shape[0], self.nclass, dtype=torch.float)
                 lengths = torch.ones(image.shape[0])
 
         return score_map, geo_map, (preds, lengths), pred_boxes, pred_mapping, indices
