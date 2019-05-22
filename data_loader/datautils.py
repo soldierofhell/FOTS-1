@@ -46,7 +46,7 @@ def load_annoataion(p):
                 text_tags.append(True)
             else:
                 text_tags.append(False)
-        return np.array(text_polys, dtype=np.float32), texts, np.array(text_tags, dtype=np.bool)
+        return np.array(text_polys, dtype=np.float32), np.array(texts), np.array(text_tags, dtype=np.bool)
 
 
 def polygon_area(poly):
@@ -94,19 +94,13 @@ def check_and_validate_polys(polys, texts, tags, xxx_todo_changeme):
         validated_polys.append(poly)
         validated_text.append(text)
         validated_tags.append(tag)
-    return np.array(validated_polys), validated_text, np.array(validated_tags)
+    return np.array(validated_polys), np.array(validated_text), np.array(validated_tags)
 
 
-def crop_area(im, polys, tags, crop_background=False, max_tries=50):
-    '''
+def crop_area(im, polys, tags, texts, crop_background=False, max_tries=50):
+    """
     make random crop from the input image
-    :param im:
-    :param polys:
-    :param tags:
-    :param crop_background:
-    :param max_tries:
-    :return:
-    '''
+    """
     h, w, _ = im.shape
     pad_h = h // 10
     pad_w = w // 10
@@ -155,11 +149,12 @@ def crop_area(im, polys, tags, crop_background=False, max_tries=50):
         im = im[ymin:ymax + 1, xmin:xmax + 1, :]
         polys = polys[selected_polys]
         tags = tags[selected_polys]
+        texts = texts[selected_polys]
         polys[:, :, 0] -= xmin
         polys[:, :, 1] -= ymin
-        return im, polys, tags, selected_polys
+        return im, polys, tags, texts, selected_polys
 
-    return im, polys, tags, np.array(len(polys))
+    return im, polys, tags, texts, np.array(len(polys))
 
 
 def shrink_poly(poly, r):
@@ -583,7 +578,7 @@ def rotate_image_and_points(image, points, angle):
 def image_label(txt_root, image_list, img_name, index,
                 input_size=512, random_scale=np.array([0.5, 1, 2.0, 3.0]),
                 background_ratio=3. / 8,
-                random_rotate_degree=np.arange(-15,16,2),
+                random_rotate_degree=np.arange(-15, 16, 2),
                 ):
     """
     get image's corresponding matrix and ground truth
@@ -608,13 +603,13 @@ def image_label(txt_root, image_list, img_name, index,
         cur_img = cv2.resize(cur_img, dsize=None, fx=rd_scale, fy=rd_scale)
         text_polys *= rd_scale
         cur_img, text_polys = rotate_image_and_points(cur_img, np.reshape(text_polys, (-1, 2)), rd_rotate_degree)
-        text_polys = np.reshape(text_polys, (-1,4, 2))
+        text_polys = np.reshape(text_polys, (-1, 4, 2))
         rectangles = []
 
         # 一定概率概率随机裁剪背景还是有多边形的区域
         if np.random.rand() < background_ratio:
             # crop background
-            cur_img, text_polys, text_tags, _ = crop_area(cur_img, text_polys, text_tags, crop_background=True)
+            cur_img, text_polys, text_tags,texts, _ = crop_area(cur_img, text_polys, text_tags,texts, crop_background=True)
             assert len(text_polys) == 0, 'Background crop error'
             new_h, new_w, _ = cur_img.shape
             max_h_w_i = np.max([new_h, new_w, input_size])
@@ -626,7 +621,7 @@ def image_label(txt_root, image_list, img_name, index,
             geo_map = np.zeros((input_size, input_size, geo_map_channels), dtype=np.float32)
             training_mask = np.ones((input_size, input_size), dtype=np.uint8)
         else:
-            cur_img, text_polys, text_tags, _ = crop_area(cur_img, text_polys, text_tags, crop_background=False)
+            cur_img, text_polys, text_tags, texts, _ = crop_area(cur_img, text_polys, text_tags,texts, crop_background=False)
             assert len(text_polys) > 0, 'Text area crop error'
             h, w, _ = cur_img.shape
 
@@ -647,7 +642,6 @@ def image_label(txt_root, image_list, img_name, index,
             text_polys[:, :, 1] *= resize_ratio_3_y
             new_h, new_w, _ = cur_img.shape
             score_map, geo_map, training_mask, rectangles = generate_rbox((new_h, new_w), text_polys, text_tags)
-
         assert len(rectangles) == len(texts), "number of box and text don't match"
         step_size = int(input_size // 128)
         images = cur_img[:, :, ::-1].astype(np.float32)
