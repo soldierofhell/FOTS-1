@@ -143,9 +143,9 @@
 
 `python eval.py -m \path\to\your\model.pth.tar  -i \path\to\eval\images -o \path\to\output\result`
 
-### gRPC服务【coming soon】
+### gRPC服务
 
-`python service\serve.py -m \path\to\your\model.pth.tar -p port_number` 
+在`service`文件夹下面查看详情
 
 ## 原理解释
 
@@ -154,9 +154,9 @@
 > 本项目已经跟原论文有一定差异了，为了更好收敛模型做的各种调整，以适用于实际场景。而且到后面可能都不是FOTS，所以请大家不要纠结是否跟原论文一致。效果好就行了。
 
 ### 网络结构图
-![网络结构图](./imgs/fots.jpg)
 
 本质上来说当前FOTS是升级版east+crnn的实现。与普通的两个模型简单粗暴的合在一起不一样，FOTS是把两个模型放到同一个大模型里面了，也就是梯度下降能应用于两个部分。模型结构如下图所示：
+![网络结构图](./imgs/fots.jpg)
 
 > **NOTE**
 >
