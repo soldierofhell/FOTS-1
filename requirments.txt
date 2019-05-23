@@ -1,6 +1,6 @@
 tqdm
-torch
-torchvision
+torch==1.0.1
+torchvision==0.2.2
 numpy
 opencv-python==3.4.5.20
 pillow
