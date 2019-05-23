@@ -317,7 +317,9 @@ class Toolbox:
         if isinstance(to_predict_img, Path):
             im = cv2.imread(to_predict_img.as_posix())[:, :, ::-1]
         elif isinstance(to_predict_img, Image.Image):
-            im = np.array(to_predict_img)[:, :, ::-1]
+            if to_predict_img.mode != 'RGB':
+                to_predict_img = to_predict_img.convert('RGB')
+            im = np.array(to_predict_img)
         else:
             return None, None, None
         im_resized, (ratio_h, ratio_w) = Toolbox.resize_image(im)
