@@ -17,7 +17,7 @@ from utils import common_str
 from utils.bbox import Toolbox
 from utils.util import strLabelConverter
 
-global model, label_converter, with_cpu
+global model, label_converter, with_gpu
 
 
 def get_bound_box(polygon):
@@ -44,7 +44,7 @@ class DetectHandler(tornado.web.RequestHandler):
                 model=model,
                 with_img=False,
                 output_dir=None,
-                with_gpu=with_cpu,
+                with_gpu=with_gpu,
                 output_txt_dir=None,
                 labels=None,
                 label_converter=label_converter)
@@ -78,8 +78,8 @@ if __name__ == "__main__":
     model.eval()
     model.load_state_dict(torch.load(config['model_path'])['state_dict'])
     label_converter = strLabelConverter(getattr(common_str, config['model']['keys']))
-    with_cpu = config['cuda']
-    if with_cpu:
+    with_gpu = config['cuda']
+    if with_gpu:
         model.to(torch.device("cuda:0"))
 
     routes = [
