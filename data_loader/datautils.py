@@ -1,4 +1,6 @@
 import os
+from itertools import compress
+
 import torch
 import glob as gb
 import numpy as np
@@ -35,14 +37,14 @@ def load_annoataion(p):
     with open(p, 'r') as f:
         reader = csv.reader(f)
         for line in reader:
-            label = line[-1]
+            label = line[-1].strip()
             # strip BOM. \ufeff for python3,  \xef\xbb\bf for python2
             line = [i.strip('\ufeff').strip('\xef\xbb\xbf') for i in line]
 
             x1, y1, x2, y2, x3, y3, x4, y4 = list(map(float, line[:8]))
             text_polys.append([[x1, y1], [x2, y2], [x3, y3], [x4, y4]])
             texts.append(label)
-            if label == '*' or label == '###':
+            if label == '*' or label == '###' or label == '':
                 text_tags.append(True)
             else:
                 text_tags.append(False)
@@ -609,7 +611,7 @@ def image_label(txt_root, image_list, img_name, index,
         # 一定概率概率随机裁剪背景还是有多边形的区域
         if np.random.rand() < background_ratio:
             # crop background
-            cur_img, text_polys, text_tags,texts, _ = crop_area(cur_img, text_polys, text_tags,texts, crop_background=True)
+            cur_img, text_polys, text_tags,texts, selected_poly = crop_area(cur_img, text_polys, text_tags,texts, crop_background=True)
             assert len(text_polys) == 0, 'Background crop error'
             new_h, new_w, _ = cur_img.shape
             max_h_w_i = np.max([new_h, new_w, input_size])
@@ -621,7 +623,7 @@ def image_label(txt_root, image_list, img_name, index,
             geo_map = np.zeros((input_size, input_size, geo_map_channels), dtype=np.float32)
             training_mask = np.ones((input_size, input_size), dtype=np.uint8)
         else:
-            cur_img, text_polys, text_tags, texts, _ = crop_area(cur_img, text_polys, text_tags,texts, crop_background=False)
+            cur_img, text_polys, text_tags, texts, selected_poly = crop_area(cur_img, text_polys, text_tags,texts, crop_background=False)
             assert len(text_polys) > 0, 'Text area crop error'
             h, w, _ = cur_img.shape
 
@@ -648,6 +650,11 @@ def image_label(txt_root, image_list, img_name, index,
         score_maps = score_map[::step_size, ::step_size, np.newaxis].astype(np.float32)
         geo_maps = geo_map[::step_size, ::step_size, :].astype(np.float32)
         training_masks = training_mask[::step_size, ::step_size, np.newaxis].astype(np.float32)
+
+        texts = list(compress(texts, 1-text_tags))
+        rectangles = list(compress(rectangles, 1-text_tags))
+
+        assert len(texts) == len(rectangles) and len(texts) > 0
 
     except Exception as e:
         cur_img_name, images, score_maps, geo_maps, training_masks, texts, rectangles = None, None, None, None, None, None, None
