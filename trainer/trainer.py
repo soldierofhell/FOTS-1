@@ -200,8 +200,8 @@ class Trainer(BaseTrainer):
                     gt_fns = [image_paths[i] for i in mapping]
                     total_val_metrics += self._eval_metrics((pred_boxes, pred_transcripts, pred_fns),
                                                             (boxes, transcripts, gt_fns))
-                except:
-                    print(image_paths)
+                except Exception as e:
+                    print(image_paths,e)
                     # raise
 
         return {
