@@ -1,4 +1,5 @@
 import logging
+import random
 from itertools import compress
 
 import scipy.io as sio
@@ -14,6 +15,7 @@ class MyDataset(Dataset):
     def __init__(self, img_root, txt_root,limit=None):
         self.image_list, self.img_name = get_images(img_root,limit)
         self.txt_root = txt_root
+        self._len = len(self.image_list)
 
     def __getitem__(self, index):
         img_path, img, score_map, geo_map, training_mask, text, bboxes = image_label(self.txt_root,
@@ -22,13 +24,13 @@ class MyDataset(Dataset):
                                                                                      input_size=512,
                                                                                      random_scale=np.array(
                                                                                          [0.5, 1, 2.0, 3.0]),
-                                                                                     background_ratio=3. / 8)
+                                                                                     background_ratio=0.1)
         if bboxes is None or (bboxes is not None and len(bboxes) == 0):
-            return self.__getitem__(index)
+            return self.__getitem__(random.randint(0,self._len))
         return img_path, img, score_map, geo_map, training_mask, text, bboxes
 
     def __len__(self):
-        return len(self.image_list)
+        return self._len
 
 
 class ICDAR(Dataset):
@@ -127,12 +129,12 @@ class ICDAR(Dataset):
         # _, _, numOfWords = wordBBoxes.shape
         numOfWords = len(wordBBoxes)
         text_polys = wordBBoxes  # num_words * 4 * 2
-        transcripts = [word for line in transcripts for word in line.split()]
+        transcripts = np.array([word for line in transcripts for word in line.split()])
         text_tags = [True if (tag == '*' or tag == '###') else False for tag in transcripts]  # ignore '###'
 
         if numOfWords == len(transcripts):
             h, w, _ = im.shape
-            text_polys, _, text_tags = check_and_validate_polys(text_polys, transcripts, text_tags, (h, w))
+            text_polys, transcripts, text_tags = check_and_validate_polys(text_polys, transcripts, text_tags, (h, w))
 
             rd_scale = np.random.choice(random_scale)
             im = cv2.resize(im, dsize=None, fx=rd_scale, fy=rd_scale)
@@ -144,7 +146,7 @@ class ICDAR(Dataset):
             # random crop a area from image
             if np.random.rand() < background_ratio:
                 # crop background
-                im, text_polys, text_tags, selected_poly = crop_area(im, text_polys, text_tags, crop_background=True)
+                im, text_polys, text_tags,transcripts, selected_poly = crop_area(im, text_polys,transcripts, text_tags, crop_background=True)
                 if text_polys.shape[0] > 0:
                     # cannot find background
                     raise RuntimeError('cannot find background')
@@ -159,7 +161,7 @@ class ICDAR(Dataset):
                 geo_map = np.zeros((input_size, input_size, geo_map_channels), dtype=np.float32)
                 training_mask = np.ones((input_size, input_size), dtype=np.uint8)
             else:
-                im, text_polys, text_tags, selected_poly = crop_area(im, text_polys, text_tags, crop_background=False)
+                im, text_polys, text_tags,transcripts, selected_poly = crop_area(im, text_polys, text_tags,transcripts, crop_background=False)
                 if text_polys.shape[0] == 0:
                     raise RuntimeError('cannot find background')
                 h, w, _ = im.shape
