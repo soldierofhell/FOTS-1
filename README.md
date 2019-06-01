@@ -1,4 +1,5 @@
 # FOTS
+[English Version](./README_english.md)
 [TOC]
 
 本项目基于[Ning Lu](https://github.com/jiangxiluning)以及[DongLiang Ma](https://vipermdl.github.io/)还有其他优秀的开源项目的共同实现的FOTS。**感恩所有开源项目的贡献者。**
