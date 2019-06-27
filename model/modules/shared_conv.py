@@ -76,17 +76,16 @@ class SharedConv(BaseModel):
         conv4 = None
         output = None  # n * 7 * 7 * 2048
 
-        input = self.backbone(input)
         for name, layer in self.backbone.named_children():
-            #input = layer(input)
+            input = layer(input)
             if name == 'layer1':
-                conv2 = layer #input
+                conv2 = input
             elif name == 'layer2':
-                conv3 = layer #input
+                conv3 = input
             elif name == 'layer3':
-                conv4 = layer #input
+                conv4 = input
             elif name == 'layer4':
-                output = layer #input
+                output = input
                 break
 
         return output, conv4, conv3, conv2
