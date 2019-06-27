@@ -39,7 +39,7 @@ class SharedConv(BaseModel):
 
     def forward(self, input):
 
-        input = self.__mean_image_subtraction(input)
+        #input = self.__mean_image_subtraction(input)
 
         # bottom up
 
@@ -76,16 +76,17 @@ class SharedConv(BaseModel):
         conv4 = None
         output = None  # n * 7 * 7 * 2048
 
+        input = self.backbone(input)
         for name, layer in self.backbone.named_children():
-            input = layer(input)
+            #input = layer(input)
             if name == 'layer1':
-                conv2 = input
+                conv2 = layer #input
             elif name == 'layer2':
-                conv3 = input
+                conv3 = layer #input
             elif name == 'layer3':
-                conv4 = input
+                conv4 = layer #input
             elif name == 'layer4':
-                output = input
+                output = layer #input
                 break
 
         return output, conv4, conv3, conv2
