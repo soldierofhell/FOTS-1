@@ -9,6 +9,8 @@ import csv
 import pathlib
 from shapely.geometry import Polygon
 
+import torchvision.transforms.functional as TF
+IMAGENET_NORMALIZE =  {'mean': [0.485, 0.456, 0.406],'std': [0.229, 0.224, 0.225]}
 
 def get_images(root, limit=None):
     '''
@@ -591,6 +593,7 @@ def image_label(txt_root, image_list, img_name, index,
         image_filename = image_list[index]
         cur_img_name = img_name[index]
         cur_img = cv2.imread(image_filename)
+        cur_img = cv2.cvtColor(cur_img, cv2.COLOR_BGR2RGB)
         h, w, _ = cur_img.shape
 
         gt_file_name = 'gt_' + cur_img_name.replace(cur_img_name.split('.')[1], 'txt')
@@ -690,7 +693,6 @@ def image_label(txt_root, image_list, img_name, index,
 #
 #     return images, score_maps, geo_maps, training_masks
 
-
 def collate_fn(batch):
     image_paths, img, score_map, geo_map, training_mask, transcripts, boxes = zip(*batch)
     bs = len(score_map)
@@ -701,8 +703,8 @@ def collate_fn(batch):
 
     for i in range(bs):
         if img[i] is not None:
-            a = torch.from_numpy(img[i])
-            a = a.permute(2, 0, 1)
+            a = TF.to_tensor(img[i])
+            a = TF.normalize(a, mean=IMAGENET_NORMALIZE['mean'], std=IMAGENET_NORMALIZE['std'])
             images.append(a)
             b = torch.from_numpy(score_map[i])
             b = b.permute(2, 0, 1)
