@@ -23,7 +23,7 @@ class Trainer(BaseTrainer):
     def __init__(self, model, loss, metrics,
                  finetune, resume, config,
                  data_loader, toolbox: Toolbox, valid_data_loader=None, train_logger=None,
-                 keys=custom_1):
+                 keys=custom_1, writer=None):
         super(Trainer, self).__init__(model, loss, metrics, finetune, resume, config, train_logger)
         self.config = config
         self.batch_size = data_loader.batch_size
@@ -34,7 +34,7 @@ class Trainer(BaseTrainer):
         self.toolbox = toolbox
         self.labelConverter = strLabelConverter(keys)
         
-        self.writer = SummaryWriter()
+        self.writer = writer
 
     def _to_tensor(self, *tensors):
         t = []
