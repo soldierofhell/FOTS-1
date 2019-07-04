@@ -125,7 +125,7 @@ class ICDAR(Dataset):
 
         imagePath, wordBBoxes, transcripts = gt
         im = cv2.imread(imagePath.as_posix())
-        im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
+        #im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
         # wordBBoxes = np.expand_dims(wordBBoxes, axis = 2) if (wordBBoxes.ndim == 2) else wordBBoxes
         # _, _, numOfWords = wordBBoxes.shape
         numOfWords = len(wordBBoxes)
