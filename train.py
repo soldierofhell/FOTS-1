@@ -14,11 +14,15 @@ from model.metric import *
 from trainer import Trainer
 from utils.bbox import Toolbox
 
+from torch.utils.tensorboard import SummaryWriter
+
 logging.basicConfig(level=logging.DEBUG, format='')
 
 
 def main(config, resume):
     train_logger = Logger()
+    
+    writer = SummaryWriter()
 
     if config['data_loader']['dataset'] == 'icdar2015':
         # ICDAR 2015
