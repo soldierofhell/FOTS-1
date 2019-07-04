@@ -6,6 +6,10 @@ from utils.bbox import Toolbox
 from utils.common_str import custom_1
 from utils.util import strLabelConverter
 
+import datetime
+import os
+import torchvision
+from torch.utils.tensorboard import SummaryWriter
 
 class Trainer(BaseTrainer):
     """
@@ -29,6 +33,8 @@ class Trainer(BaseTrainer):
         self.log_step = int(np.sqrt(self.batch_size))
         self.toolbox = toolbox
         self.labelConverter = strLabelConverter(keys)
+        
+        self.writer = SummaryWriter()
 
     def _to_tensor(self, *tensors):
         t = []
@@ -66,6 +72,10 @@ class Trainer(BaseTrainer):
         for batch_idx, gt in enumerate(self.data_loader):
             try:
                 image_paths, img, score_map, geo_map, training_mask, transcripts, boxes, mapping = gt
+                
+                grid = torchvision.utils.make_grid(img)
+                self.writer.add_image('images', grid, 0)
+                
                 img, score_map, geo_map, training_mask = self._to_tensor(img, score_map, geo_map, training_mask)
 
                 self.optimizer.zero_grad()
@@ -77,23 +87,24 @@ class Trainer(BaseTrainer):
                     pred_boxes = pred_boxes[indices]
                     pred_mapping = pred_mapping[indices]
                     labels, label_lengths = self.labelConverter.encode(indice_transcripts.tolist())
+                    labels, label_lengths = self._to_tensor(labels, label_lengths)
                     recog = (labels, label_lengths)
                 else:
                     recog = (None,None)
 
-                det_loss, reg_loss = self.loss(score_map,
+                det_loss_2, det_loss_1, reg_loss = self.loss(score_map,
                                                pred_score_map if pred_score_map is not None else score_map,
                                                geo_map,
                                                pred_geo_map if pred_geo_map is not None else geo_map,
                                                recog,
                                                pred_recog,
                                                training_mask)
-                loss = det_loss + reg_loss
+                loss = det_loss_1 + 0*reg_loss
                 loss.backward()
                 self.optimizer.step()
 
                 total_loss += loss.item()
-                total_det_loss += det_loss.item()
+                total_det_loss += det_loss_1.item()
                 # # bad case定位
                 # if det_loss.item() >= 0.01:
                 #     print(image_paths)
@@ -112,17 +123,17 @@ class Trainer(BaseTrainer):
                     pred_transcripts = np.array(pred_transcripts)
 
                 gt_fns = [image_paths[i] for i in mapping]
-                total_metrics += self._eval_metrics((pred_boxes, pred_transcripts, pred_fns),
+                #total_metrics += self._eval_metrics((pred_boxes, pred_transcripts, pred_fns),
                                                     (boxes, transcripts, gt_fns))
 
                 if self.verbosity >= 2 and batch_idx % self.log_step == 0:
                     self.logger.info(
-                        'Train Epoch: {} [{}/{} ({:.0f}%)] Loss: {:.6f} Detection Loss: {:.6f} Recognition Loss:{:.6f}'.format(
+                        'Train Epoch: {} [{}/{} ({:.0f}%)] Loss: {:.6f} Detection Loss 1: {:.6f} Detection Loss 2: {:.6f} Recognition Loss:{:.6f}'.format(
                             epoch,
                             batch_idx * self.data_loader.batch_size,
                             len(self.data_loader) * self.data_loader.batch_size,
                             100.0 * batch_idx / len(self.data_loader),
-                            loss.item(), det_loss.item(), reg_loss.item()))
+                            loss.item(), , det_loss_1.item(), det_loss_2.item(), reg_loss.item()))
             except:
                 print(image_paths)
                 raise
@@ -136,9 +147,9 @@ class Trainer(BaseTrainer):
             'hmean': total_metrics[2] / dataset_size
         }
 
-        if self.valid:
-            val_log = self._valid_epoch()
-            log = {**log, **val_log}
+        #if self.valid:
+        #    val_log = self._valid_epoch()
+        #    log = {**log, **val_log}
 
         return log
 
