@@ -5,8 +5,9 @@ from torch.nn import CTCLoss
 
 
 class DetectionLoss(nn.Module):
-    def __init__(self):
+    def __init__(self, writer):
         super(DetectionLoss, self).__init__()
+        self.writer = writer
         return
 
     def forward(self, y_true_cls, y_pred_cls,
@@ -48,6 +49,9 @@ class DetectionLoss(nn.Module):
         intersection = torch.sum(y_true_cls * y_pred_cls * training_mask)
         union = torch.sum(y_true_cls * training_mask) + torch.sum(y_pred_cls * training_mask) + eps
         loss = 1. - (2 * intersection / union)
+        
+        writer.add_histogram('intersection', intersection)
+        writer.add_histogram('union', union)
 
         return loss
 
@@ -66,10 +70,11 @@ class RecognitionLoss(nn.Module):
 
 class FOTSLoss(nn.Module):
 
-    def __init__(self, config):
+    def __init__(self, config, writer):
         super(FOTSLoss, self).__init__()
         self.mode = config['mode']
-        self.detection_loss = DetectionLoss()
+        self.writer = writer
+        self.detection_loss = DetectionLoss(writer)
         self.recognition_loss = RecognitionLoss()
 
     def forward(self, y_true_cls, y_pred_cls,
