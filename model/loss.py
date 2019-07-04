@@ -30,8 +30,10 @@ class DetectionLoss(nn.Module):
         L_AABB = -torch.log((area_intersect + 1.0) / (area_union + 1.0))
         L_theta = 1 - torch.cos(theta_pred - theta_gt)
         L_g = L_AABB + 20 * L_theta
+        
+        L_g = torch.sum(L_g * y_true_cls * training_mask)/torch.sum(y_true_cls * training_mask)
 
-        return torch.mean(L_g * y_true_cls * training_mask) + classification_loss
+        return L_g+classification_loss, classification_loss
 
     def __dice_coefficient(self, y_true_cls, y_pred_cls,
                            training_mask):
@@ -77,17 +79,18 @@ class FOTSLoss(nn.Module):
 
         recognition_loss = torch.tensor([0]).float()
         detection_loss = torch.tensor([0]).float()
+        classification_loss = torch.tensor([0]).float()
 
         if self.mode == 'recognition':
             recognition_loss = self.recognition_loss(y_true_recog, y_pred_recog)
         elif self.mode == 'detection':
-            detection_loss = self.detection_loss(y_true_cls, y_pred_cls,
+            detection_loss, classification_loss = self.detection_loss(y_true_cls, y_pred_cls,
                                                  y_true_geo, y_pred_geo, training_mask)
         elif self.mode == 'united':
-            detection_loss = self.detection_loss(y_true_cls, y_pred_cls,
+            detection_loss, classification_loss = self.detection_loss(y_true_cls, y_pred_cls,
                                                 y_true_geo, y_pred_geo, training_mask)
             if y_true_recog:
                 recognition_loss = self.recognition_loss(y_true_recog, y_pred_recog)
 
         recognition_loss = recognition_loss.to(detection_loss.device)
-        return detection_loss, recognition_loss
+        return detection_loss, classification_loss, recognition_loss
