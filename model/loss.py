@@ -52,6 +52,9 @@ class DetectionLoss(nn.Module):
         
         self.writer.add_histogram('intersection', intersection)
         self.writer.add_histogram('union', union)
+        
+        print('intersection :': intersection.item())
+        print('union :': union.item())
 
         return loss
 
