@@ -101,7 +101,8 @@ class Trainer(BaseTrainer):
                                                pred_geo_map if pred_geo_map is not None else geo_map,
                                                recog,
                                                pred_recog,
-                                               training_mask)
+                                               training_mask,
+                                               batch_idx)
                 loss = det_loss_1 + 0*reg_loss
                 loss.backward()
                 self.optimizer.step()
