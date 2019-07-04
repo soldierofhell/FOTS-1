@@ -89,7 +89,7 @@ class FOTSLoss(nn.Module):
     def forward(self, y_true_cls, y_pred_cls,
                 y_true_geo, y_pred_geo,
                 y_true_recog, y_pred_recog,
-                training_mask):
+                training_mask, global_step):
 
         recognition_loss = torch.tensor([0]).float()
         detection_loss = torch.tensor([0]).float()
@@ -99,10 +99,10 @@ class FOTSLoss(nn.Module):
             recognition_loss = self.recognition_loss(y_true_recog, y_pred_recog)
         elif self.mode == 'detection':
             detection_loss, classification_loss = self.detection_loss(y_true_cls, y_pred_cls,
-                                                 y_true_geo, y_pred_geo, training_mask)
+                                                 y_true_geo, y_pred_geo, training_mask, global_step)
         elif self.mode == 'united':
             detection_loss, classification_loss = self.detection_loss(y_true_cls, y_pred_cls,
-                                                y_true_geo, y_pred_geo, training_mask)
+                                                y_true_geo, y_pred_geo, training_mask, global_step)
             if y_true_recog:
                 recognition_loss = self.recognition_loss(y_true_recog, y_pred_recog)
 
