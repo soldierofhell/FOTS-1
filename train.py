@@ -89,7 +89,7 @@ if __name__ == '__main__':
         if args.config is not None:
             config = json.load(open(args.config))
             logger.warning('Warning: --config overridden by --resume')
-        config = torch.load(args.resume)['config']
+        #config = torch.load(args.resume)['config']
     elif args.config is not None:
         config = json.load(open(args.config))
         path = os.path.join(config['trainer']['save_dir'], config['name'])
