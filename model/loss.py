@@ -12,8 +12,8 @@ class DetectionLoss(nn.Module):
 
     def forward(self, y_true_cls, y_pred_cls,
                 y_true_geo, y_pred_geo,
-                training_mask):
-        classification_loss = self.__dice_coefficient(y_true_cls, y_pred_cls, training_mask)
+                training_mask, global_step):
+        classification_loss = self.__dice_coefficient(y_true_cls, y_pred_cls, training_mask, global_step)
         # scale classification loss to match the iou loss part
         #classification_loss *= 0.01
 
@@ -37,7 +37,7 @@ class DetectionLoss(nn.Module):
         return L_g+classification_loss, classification_loss
 
     def __dice_coefficient(self, y_true_cls, y_pred_cls,
-                           training_mask):
+                           training_mask, global_step):
         '''
         dice loss
         :param y_true_cls:
@@ -52,12 +52,12 @@ class DetectionLoss(nn.Module):
         union = union_gt + union_pred + eps
         loss = 1. - (2 * intersection / union)
         
-        self.writer.add_histogram('intersection', intersection)
-        self.writer.add_histogram('union', union)
-        self.writer.add_histogram('union_gt', union_gt)
-        self.writer.add_histogram('union_pred', union_pred)
+        self.writer.add_histogram('intersection', intersection, global_step)
+        self.writer.add_histogram('union', union, global_step)
+        self.writer.add_histogram('union_gt', union_gt, global_step)
+        self.writer.add_histogram('union_pred', union_pred, global_step)
         
-        self.writer.add_histogram('loss', loss)
+        self.writer.add_histogram('loss', loss, global_step)
         
         #print('intersection :', intersection.item())
         #print('union :', union.item())
