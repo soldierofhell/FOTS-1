@@ -133,7 +133,7 @@ class Trainer(BaseTrainer):
                             batch_idx * self.data_loader.batch_size,
                             len(self.data_loader) * self.data_loader.batch_size,
                             100.0 * batch_idx / len(self.data_loader),
-                            loss.item(), , det_loss_1.item(), det_loss_2.item(), reg_loss.item()))
+                            loss.item(), det_loss_1.item(), det_loss_2.item(), reg_loss.item()))
             except:
                 print(image_paths)
                 raise
