@@ -46,7 +46,7 @@ def main(config, resume):
     model = eval(config['arch'])(config)
     model.summary()
 
-    loss = eval(config['loss'])(config['model'], writer)
+    loss = eval(config['loss'])(config, writer)
     metrics = [eval(metric) for metric in config['metrics']]
 
     finetune_model = config['finetune']
