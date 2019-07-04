@@ -70,6 +70,9 @@ class Trainer(BaseTrainer):
         total_metrics = np.zeros(3)  # precious, recall, hmean
         dataset_size = len(self.data_loader)
         for batch_idx, gt in enumerate(self.data_loader):
+            
+            global_step = epoch * dataset_size + batch_idx
+            
             try:
                 image_paths, img, score_map, geo_map, training_mask, transcripts, boxes, mapping = gt
                 
@@ -102,7 +105,7 @@ class Trainer(BaseTrainer):
                                                recog,
                                                pred_recog,
                                                training_mask,
-                                               batch_idx)
+                                               global_step)
                 loss = det_loss_1 + 0*reg_loss
                 loss.backward()
                 self.optimizer.step()
