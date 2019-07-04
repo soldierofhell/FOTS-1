@@ -704,7 +704,7 @@ def collate_fn(batch):
     for i in range(bs):
         if img[i] is not None:
             a = TF.to_tensor(img[i])
-            a = TF.normalize(a, mean=IMAGENET_NORMALIZE['mean'], std=IMAGENET_NORMALIZE['std'])
+            #a = TF.normalize(a, mean=IMAGENET_NORMALIZE['mean'], std=IMAGENET_NORMALIZE['std'])
             images.append(a)
             b = torch.from_numpy(score_map[i])
             b = b.permute(2, 0, 1)
