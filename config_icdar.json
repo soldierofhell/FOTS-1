@@ -28,6 +28,11 @@
         "weight_decay": 1e-5
     },
     "loss": "FOTSLoss",
+    "loss_lambdas": {
+        "lambda_recog": 1,
+        "lambda_reg": 1,
+        "lambda_theta": 10
+    },
     "metrics": ["fots_metric"],
     "trainer": {
         "epochs": 10000,
