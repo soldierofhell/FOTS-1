@@ -15,7 +15,7 @@ class DetectionLoss(nn.Module):
                 training_mask):
         classification_loss = self.__dice_coefficient(y_true_cls, y_pred_cls, training_mask)
         # scale classification loss to match the iou loss part
-        classification_loss *= 0.01
+        #classification_loss *= 0.01
 
         # d1 -> top, d2->right, d3->bottom, d4->left
         #     d1_gt, d2_gt, d3_gt, d4_gt, theta_gt = tf.split(value=y_true_geo, num_or_size_splits=5, axis=3)
@@ -47,14 +47,20 @@ class DetectionLoss(nn.Module):
         '''
         eps = 1e-5
         intersection = torch.sum(y_true_cls * y_pred_cls * training_mask)
-        union = torch.sum(y_true_cls * training_mask) + torch.sum(y_pred_cls * training_mask) + eps
+        union_gt = torch.sum(y_true_cls * training_mask)
+        union_pred = torch.sum(y_pred_cls * training_mask)
+        union = union_gt + union_pred + eps
         loss = 1. - (2 * intersection / union)
         
         self.writer.add_histogram('intersection', intersection)
         self.writer.add_histogram('union', union)
+        self.writer.add_histogram('union_gt', union_gt)
+        self.writer.add_histogram('union_pred', union_pred)
         
-        print('intersection :', intersection.item())
-        print('union :', union.item())
+        self.writer.add_histogram('loss', loss)
+        
+        #print('intersection :', intersection.item())
+        #print('union :', union.item())
 
         return loss
 
