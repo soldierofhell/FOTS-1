@@ -124,7 +124,7 @@ class Trainer(BaseTrainer):
 
                 gt_fns = [image_paths[i] for i in mapping]
                 #total_metrics += self._eval_metrics((pred_boxes, pred_transcripts, pred_fns),
-                                                    (boxes, transcripts, gt_fns))
+                #                                    (boxes, transcripts, gt_fns))
 
                 if self.verbosity >= 2 and batch_idx % self.log_step == 0:
                     self.logger.info(
