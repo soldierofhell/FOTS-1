@@ -7,7 +7,7 @@
     "data_loader": {
         "dataset":"icdar2015",
         "data_dir": "/content/icdar2015",
-        "batch_size": 8,
+        "batch_size": 2,
         "shuffle": true,
         "workers": 0
     },
