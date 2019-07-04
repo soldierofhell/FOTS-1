@@ -52,12 +52,12 @@ class DetectionLoss(nn.Module):
         union = union_gt + union_pred + eps
         loss = 1. - (2 * intersection / union)
         
-        self.writer.add_histogram('intersection', intersection, global_step)
-        self.writer.add_histogram('union', union, global_step)
-        self.writer.add_histogram('union_gt', union_gt, global_step)
-        self.writer.add_histogram('union_pred', union_pred, global_step)
+        self.writer.add_scalar('intersection', intersection, global_step)
+        self.writer.add_scalar('union', union, global_step)
+        self.writer.add_scalar('union_gt', union_gt, global_step)
+        self.writer.add_scalar('union_pred', union_pred, global_step)
         
-        self.writer.add_histogram('loss', loss, global_step)
+        self.writer.add_scalar('loss', loss, global_step)
         
         #print('intersection :', intersection.item())
         #print('union :', union.item())
