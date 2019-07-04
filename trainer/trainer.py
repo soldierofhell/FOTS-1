@@ -73,8 +73,11 @@ class Trainer(BaseTrainer):
             try:
                 image_paths, img, score_map, geo_map, training_mask, transcripts, boxes, mapping = gt
                 
-                grid = torchvision.utils.make_grid(img)
-                self.writer.add_image('images', grid, 0)
+                if batch_idx % 50 == 0:
+                    #grid = torchvision.utils.make_grid(score_map)
+                    #self.writer.add_image('images', score_map, 0)
+                    self.writer.add_images('images', img, 0)
+                    self.writer.add_images('score_map', score_map, 0)
                 
                 img, score_map, geo_map, training_mask = self._to_tensor(img, score_map, geo_map, training_mask)
 
