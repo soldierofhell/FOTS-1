@@ -33,6 +33,9 @@ class DetectionLoss(nn.Module):
         L_g = L_AABB + 20 * L_theta
         
         L_g = torch.sum(L_g * y_true_cls * training_mask)/torch.sum(y_true_cls * training_mask)
+        
+        self.writer.add_scalar('L_AABB', L_AABB, global_step)
+        self.writer.add_scalar('L_theta', L_theta, global_step)
 
         return L_g+classification_loss, classification_loss
 
