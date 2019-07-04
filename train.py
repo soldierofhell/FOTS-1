@@ -46,7 +46,7 @@ def main(config, resume):
     model = eval(config['arch'])(config)
     model.summary()
 
-    loss = eval(config['loss'])(config['model'])
+    loss = eval(config['loss'])(config['model'], writer)
     metrics = [eval(metric) for metric in config['metrics']]
 
     finetune_model = config['finetune']
@@ -59,7 +59,8 @@ def main(config, resume):
                       valid_data_loader=val,
                       train_logger=train_logger,
                       toolbox = Toolbox,
-                      keys=getattr(common_str,config['model']['keys']))
+                      keys=getattr(common_str,config['model']['keys']),
+                      writer)
 
     trainer.train()
 
