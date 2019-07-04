@@ -5,8 +5,9 @@ from torch.nn import CTCLoss
 
 
 class DetectionLoss(nn.Module):
-    def __init__(self, writer):
+    def __init__(self, lambdas, writer):
         super(DetectionLoss, self).__init__()
+        self.lambdas = lambdas
         self.writer = writer
         return
 
@@ -30,7 +31,7 @@ class DetectionLoss(nn.Module):
         area_union = area_gt + area_pred - area_intersect
         L_AABB = -torch.log((area_intersect + 1.0) / (area_union + 1.0))
         L_theta = 1 - torch.cos(theta_pred - theta_gt)
-        L_g = L_AABB + 20 * L_theta
+        L_g = L_AABB + self.lambdas["lambda_theta"] * L_theta
         
         L_AABB_scalar = torch.sum(L_AABB * y_true_cls * training_mask)/torch.sum(y_true_cls * training_mask)
         L_theta_scalar = torch.sum(L_theta * y_true_cls * training_mask)/torch.sum(y_true_cls * training_mask)
@@ -41,7 +42,7 @@ class DetectionLoss(nn.Module):
         self.writer.add_scalar('L_AABB', L_AABB_scalar, global_step)
         self.writer.add_scalar('L_theta', L_theta_scalar, global_step)
 
-        return L_g+classification_loss, classification_loss
+        return classification_loss + self.lambdas["lambda_reg"] * L_g, classification_loss
 
     def __dice_coefficient(self, y_true_cls, y_pred_cls,
                            training_mask, global_step):
@@ -89,8 +90,9 @@ class FOTSLoss(nn.Module):
     def __init__(self, config, writer):
         super(FOTSLoss, self).__init__()
         self.mode = config['mode']
+        self.lambdas = config['loss_lambdas']
         self.writer = writer
-        self.detection_loss = DetectionLoss(writer)
+        self.detection_loss = DetectionLoss(self.lambdas, self.writer)
         self.recognition_loss = RecognitionLoss()
 
     def forward(self, y_true_cls, y_pred_cls,
