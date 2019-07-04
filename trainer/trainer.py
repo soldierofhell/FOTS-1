@@ -98,7 +98,7 @@ class Trainer(BaseTrainer):
                 else:
                     recog = (None,None)
 
-                det_loss_2, det_loss_1, reg_loss = self.loss(score_map,
+                det_loss_1, det_loss_2, reg_loss = self.loss(score_map,
                                                pred_score_map if pred_score_map is not None else score_map,
                                                geo_map,
                                                pred_geo_map if pred_geo_map is not None else geo_map,
