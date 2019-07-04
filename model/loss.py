@@ -89,7 +89,7 @@ class FOTSLoss(nn.Module):
 
     def __init__(self, config, writer):
         super(FOTSLoss, self).__init__()
-        self.mode = config['mode']
+        self.mode = config['model']['mode']
         self.lambdas = config['loss_lambdas']
         self.writer = writer
         self.detection_loss = DetectionLoss(self.lambdas, self.writer)
