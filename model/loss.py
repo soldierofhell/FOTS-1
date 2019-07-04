@@ -50,8 +50,8 @@ class DetectionLoss(nn.Module):
         union = torch.sum(y_true_cls * training_mask) + torch.sum(y_pred_cls * training_mask) + eps
         loss = 1. - (2 * intersection / union)
         
-        writer.add_histogram('intersection', intersection)
-        writer.add_histogram('union', union)
+        self.writer.add_histogram('intersection', intersection)
+        self.writer.add_histogram('union', union)
 
         return loss
 
