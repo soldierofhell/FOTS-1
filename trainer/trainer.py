@@ -73,18 +73,18 @@ class Trainer(BaseTrainer):
             try:
                 image_paths, img, score_map, geo_map, training_mask, transcripts, boxes, mapping = gt
                 
-                if batch_idx % 50 == 0:
-                    #grid = torchvision.utils.make_grid(score_map)
-                    #self.writer.add_image('images', score_map, 0)
-                    self.writer.add_images('images', img, 0)
-                    self.writer.add_images('score_map', score_map, 0)
-                
+               
                 img, score_map, geo_map, training_mask = self._to_tensor(img, score_map, geo_map, training_mask)
 
                 self.optimizer.zero_grad()
                 pred_score_map, pred_geo_map, pred_recog, pred_boxes, pred_mapping, indices = self.model.forward(img,
                                                                                                                  boxes,
                                                                                                                  mapping)
+                if batch_idx % 50 == 0:
+                    self.writer.add_images('images', img, 0)
+                    self.writer.add_images('score_map', score_map, 0)
+                    self.writer.add_images('pred_score_map', pred_score_map, 0)
+                
                 if indices is not None:
                     indice_transcripts = transcripts[indices]
                     pred_boxes = pred_boxes[indices]
