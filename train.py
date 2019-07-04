@@ -60,7 +60,7 @@ def main(config, resume):
                       train_logger=train_logger,
                       toolbox = Toolbox,
                       keys=getattr(common_str,config['model']['keys']),
-                      writer)
+                      writer=writer)
 
     trainer.train()
 
