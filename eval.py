@@ -93,7 +93,7 @@ def main(args: argparse.Namespace):
     else:
         with torch.no_grad():
             for image_fn in tqdm(image_dir.glob('*.jpg')):
-                Toolbox.predict(image_fn, model, with_image, output_img_dir, with_gpu, None, None,
+                Toolbox.predict(image_fn, model, with_image, output_img_dir, with_gpu, None, output_txt_dir,
                                 strLabelConverter(getattr(common_str,args.keys)))
 
 
