@@ -340,7 +340,7 @@ class Toolbox:
         polys = []
         texts = []
         
-        print('no of boxes :', boxes)
+        print('no of boxes :', len(boxes))
         
         if boxes is not None and len(boxes) > 0:
             boxes = boxes[:, :8].reshape((-1, 4, 2))
