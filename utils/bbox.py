@@ -315,7 +315,7 @@ class Toolbox:
     def predict(to_predict_img, model, with_img, output_dir, with_gpu, labels, output_txt_dir, label_converter,
                 enable_correct=False):
         if isinstance(to_predict_img, Path):
-            print('image: ', str(Path))
+            print('image: ', to_predict_img.as_posix())
             im = cv2.imread(to_predict_img.as_posix())[:, :, ::-1]
         elif isinstance(to_predict_img, Image.Image):
             if to_predict_img.mode != 'RGB':
@@ -373,6 +373,8 @@ class Toolbox:
                 polys.append(poly)
                 texts.append(m_pred_transcript)
 
+            print('no of polys :', len(polys))
+            
             if with_img:
                 font_file_path = os.path.join(os.path.dirname(__file__), "HanYiXiaoBoHuaYueYuan-Jian-2.ttf")
                 ttf_font = ImageFont.truetype(font_file_path, 20)
