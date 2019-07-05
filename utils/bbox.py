@@ -315,7 +315,7 @@ class Toolbox:
     def predict(to_predict_img, model, with_img, output_dir, with_gpu, labels, output_txt_dir, label_converter,
                 enable_correct=False):
         if isinstance(to_predict_img, Path):
-            print(Path)
+            print('image: ', str(Path))
             im = cv2.imread(to_predict_img.as_posix())[:, :, ::-1]
         elif isinstance(to_predict_img, Image.Image):
             if to_predict_img.mode != 'RGB':
@@ -340,7 +340,7 @@ class Toolbox:
         polys = []
         texts = []
         
-        print(boxes)
+        print('no of boxes :', boxes)
         
         if boxes is not None and len(boxes) > 0:
             boxes = boxes[:, :8].reshape((-1, 4, 2))
