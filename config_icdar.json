@@ -51,5 +51,11 @@
             "hidden": 512
         },
         "keys": "custom_1"
+    },
+    "prediction": {
+        "score_map_threshold": 0.5,
+        "box_threshold": 0.1,
+        "nms_threshold": 0.2
     }
+        
 }
