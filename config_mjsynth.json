@@ -1,0 +1,61 @@
+{
+    "name": "icdar2015",
+    "cuda": true,
+    "gpus": [0],
+    "finetune": "",
+    "need_grad_backbone": true,
+    "data_loader": {
+        "dataset":"icdar2015",
+        "data_dir": "/content/icdar2015",
+        "batch_size": 8,
+        "shuffle": true,
+        "workers": 0
+    },
+    "validation": {
+        "validation_split": 0.15,
+        "shuffle": true
+    },
+
+    "lr_scheduler_type": "ExponentialLR",
+    "lr_scheduler_freq": 50,
+    "lr_scheduler": {
+            "gamma": 0.94
+    },
+
+    "optimizer_type": "Adam",
+    "optimizer": {
+        "lr": 0.0001,
+        "weight_decay": 1e-5
+    },
+    "loss": "FOTSLoss",
+    "loss_lambdas": {
+        "lambda_recog": 1,
+        "lambda_reg": 1,
+        "lambda_theta": 10
+    },
+    "metrics": ["fots_metric"],
+    "trainer": {
+        "epochs": 10000,
+        "save_dir": "/content/save_dir",
+        "save_freq": 1,
+        "verbosity": 2,
+        "monitor": "loss",
+        "monitor_mode": "min"
+    },
+    "arch": "FOTSModel",
+    "model": {
+        "mode": "detection",
+        "scale": 512,
+        "crnn": {
+            "img_h": 16,
+            "hidden": 512
+        },
+        "keys": "custom_1"
+    },
+    "prediction": {
+        "score_map_threshold": 0.5,
+        "box_threshold": 0.1,
+        "nms_threshold": 0.2
+    }
+        
+}
